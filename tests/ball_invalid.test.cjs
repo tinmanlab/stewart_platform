@@ -1,0 +1,1 @@
+'use strict';const assert=require('node:assert/strict');require('../src/core.js');require('../src/ball.js');let sim=Stewart.makeSimulation();StewartBall.enable(sim);let data=Stewart.snapshot(sim);data.ball.sensor.queue=[{time:0,deliver:NaN,p:[0,0]}];assert.throws(()=>Stewart.restore(data),/ball|sensor/);console.log('PASS invalid queued sensor timestamp');
