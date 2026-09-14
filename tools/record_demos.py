@@ -57,7 +57,7 @@ def record(name,browser):
                 page.evaluate('lab.runFor(.085)' if f<112 else 'lab.runFor(.012)')
                 state=page.evaluate('({p:StewartBall.position(lab.sim),target:lab.sim.ball.target,phase:lab.sim.ball.phase})')
                 metrics.append({'frame':f,**state});assert state['phase']=='contact',state
-                text=f"BALL [mm] {state['p'][0]*1000:+.0f}, {state['p'][1]*1000:+.0f}   TARGET [mm] {state['target'][0]*1000:+.0f}, {state['target'][1]*1000:+.0f}   Ideal state sensing"
+                text=f"BALL [mm] {state['p'][0]*1000:+.0f}, {state['p'][1]*1000:+.0f}   TARGET [mm] {state['target'][0]*1000:+.0f}, {state['target'][1]*1000:+.0f}   Sampled 50 Hz / 40 ms / 24 V servo"
             if caption!=last:events.append({'frame':f,'caption':caption});last=caption
             page.evaluate("({caption,text,compare})=>{let c=document.getElementById('caption');c.replaceChildren(document.createTextNode(caption));if(!compare){let s=document.createElement('small');s.textContent='Real solver states · scripted inputs · edited playback, not a speed benchmark';c.append(s);document.getElementById('lengths').textContent=text;}}",{'caption':caption,'text':text,'compare':name=='02-compliance'})
             page.screenshot(path=str(frames/f'{f:04}.png'))

@@ -3,13 +3,25 @@
 (function(root){
 'use strict';
 const S=root.Stewart,R=root.StewartRenderer;
-function torus(major=.76,minor=.24,segments=24,sides=8){
- const v=[],n=[];const pt=(a,b)=>[(major+minor*Math.cos(b))*Math.cos(a),(major+minor*Math.cos(b))*Math.sin(a),minor*Math.sin(b)];
- const normal=(a,b)=>[Math.cos(b)*Math.cos(a),Math.cos(b)*Math.sin(a),Math.sin(b)];
- for(let i=0;i<segments;i++)for(let j=0;j<sides;j++){
-  const a=i*2*Math.PI/segments,c=(i+1)*2*Math.PI/segments,b=j*2*Math.PI/sides,d=(j+1)*2*Math.PI/sides;
-  for(const [x,y]of[[a,b],[c,b],[c,d],[a,b],[c,d],[a,d]]){v.push(...pt(x,y));n.push(...normal(x,y));}
- }return{v,n};
+// Closed spherical shell with an open retaining mouth; no through-pin or fake hinge.
+function socketShell(){
+ const spec=S.socketGeometry(S.createGeometry(),S.homeState(S.createGeometry()))[0];
+ const v=[],n=[],seg=32,rings=12,start=spec.mouthAngle;
+ const point=(r,a,b)=>[r*Math.sin(b)*Math.cos(a),r*Math.sin(b)*Math.sin(a),r*Math.cos(b)];
+ function tri(pts,normals){for(let i=0;i<3;i++){v.push(...pts[i]);n.push(...normals[i]);}}
+ for(let side of [1,-1]){
+  const r=side>0?spec.outerRadius:spec.innerRadius;
+  for(let i=0;i<seg;i++)for(let j=0;j<rings;j++){
+   const a=2*Math.PI*i/seg,c=2*Math.PI*(i+1)/seg,b=start+(Math.PI-start)*j/rings,d=start+(Math.PI-start)*(j+1)/rings;
+   const pts=[point(r,a,b),point(r,c,b),point(r,c,d),point(r,a,d)],ns=pts.map(p=>S.scale(S.unit(p),side));
+   for(const ids of [[0,1,2],[0,2,3]])tri(ids.map(k=>pts[k]),ids.map(k=>ns[k]));
+  }
+ }
+ for(let i=0;i<seg;i++){
+  const a=2*Math.PI*i/seg,b=2*Math.PI*(i+1)/seg,pts=[point(spec.innerRadius,a,start),point(spec.outerRadius,a,start),point(spec.outerRadius,b,start),point(spec.innerRadius,b,start)];
+  const nm=[0,0,1];for(const ids of [[0,1,2],[0,2,3]])tri(ids.map(k=>pts[k]),[nm,nm,nm]);
+ }
+ return{v,n};
 }
 function beveledDisk(){
  const v=[],n=[],seg=48,profile=[[.985,-.5],[1,-.36],[1,.36],[.985,.5]];
@@ -44,7 +56,7 @@ R.prototype.drawCPU=function(type,p,q,sc,color,metal){
 };
 R.prototype.hardwareMeshes=function(){
  if(this.hardwareReady)return;
- for(let [name,m]of[['bearing',torus()],['bevel',beveledDisk()]]){if(this.cpu)this.meshData[name]=m;else this.meshes[name]=this.mesh(m);}
+ for(let [name,m]of[['socket',socketShell()],['bevel',beveledDisk()]]){if(this.cpu)this.meshData[name]=m;else this.meshes[name]=this.mesh(m);}
  this.hardwareReady=true;
 };
 // Paused scenes do not need another full software rasterization every animation frame.
@@ -71,31 +83,35 @@ R.prototype.renderMechanism=function(sim,selected){
  if(this.cpu){this.flushCPU();this.tris=[];}
  for(let l of k.legs){
   const i=l.index,active=sim.joints[i].slider.mode==='active',band=active?0x148d8b:0xcb9345;
-  const radial=S.unit([g.P[i][0],g.P[i][1],0]),tangent=[-radial[1],radial[0],0],pin=S.rotate(s.q,tangent),mountQ=S.qmul(s.q,S.qexp([0,0,Math.atan2(radial[1],radial[0])])),pinQ=S.fromZ(pin);
-  // Under-deck clevis: two cheeks, a through-pin and a spherical bearing eye.
-  const h=Math.max(.054,d.bottom+.022),zc=(d.bottom-.022)/2;
-  for(let side of[-1,1]){
-   const p=at(S.add(g.P[i],S.add(S.scale(tangent,side*.031),[0,0,zc])));
-   this.draw('box',p,mountQ,[.047,.010,h],0x5d7481,.7);
-   this.draw('hex',S.add(l.a,S.scale(pin,side*.039)),pinQ,[.009,.009,.007],0xb7c6cc,.85);
+  const sockets=S.socketGeometry(g,s,k).filter(j=>j.i===i);
+  for(const j of sockets){
+   const q=S.fromZ(j.axis),back=S.sub(j.center,S.scale(j.axis,.027));
+   if(j.type==='base'){
+    this.draw('cylinder',[l.b[0],l.b[1],.050],id,[.034,.034,.016],0x6e818b,.6);
+    this.segment([l.b[0],l.b[1],.053],back,.011,0x607681,.7);
+   }else{
+    const attach=at(S.add(g.P[i],[0,0,d.bottom-.006]));
+    this.draw('cylinder',attach,s.q,[.026,.026,.012],0x8a9da5,.65);
+    this.segment(attach,back,.010,0x5f7580,.8);
+   }
+   // Housing fixed to its parent; ball/neck follow the moving leg's axis.
+   const passive=sim.joints[i][j.type].mode==='passive';
+   this.draw('socket',j.center,q,[1,1,1],passive?0x485d68:0x246c70,.65);
+   this.draw('sphere',j.center,l.q,[j.ballRadius,j.ballRadius,j.ballRadius],0xcbd6dc,.85);
+   this.segment(S.add(j.center,S.scale(j.stem,j.ballRadius*.8)),S.add(j.center,S.scale(j.stem,.053)),j.neckRadius,0xb6c7ce,.9);
+   const collar=S.add(j.center,S.scale(j.stem,.043));
+   this.draw('hex',collar,S.fromZ(j.stem),[.009,.009,.008],0x829ba5,.7);
+   if(selected&&selected.i===i&&selected.type===j.type){
+    this.ring(j.center,q,j.outerRadius*1.13,j.angle>j.limit?0xbc5145:0xda9850);
+   }
   }
-  this.segment(S.sub(l.a,S.scale(pin,.041)),S.add(l.a,S.scale(pin,.041)),.0065,0xe1e8e9,1);
-  this.draw('bearing',l.a,pinQ,[.023,.023,.023],0x344f5d,.75);this.sphere(l.a,.012,0xbcd0d6);
-  const bt=S.unit([-l.b[1],l.b[0],0]),bq=S.fromZ(bt),baseQ=S.qexp([0,0,Math.atan2(l.b[1],l.b[0])]);
-  this.draw('bevel',[l.b[0],l.b[1],.051],id,[.039,.033,.022],0x58717e,.7);
-  for(let side of[-1,1]){
-   this.draw('box',S.add(l.b,S.add(S.scale(bt,side*.030),[0,0,-.012])),baseQ,[.048,.010,.055],0x6d8490,.7);
-   this.draw('hex',S.add(l.b,S.scale(bt,side*.038)),bq,[.009,.009,.008],0xc4d2d7,.8);
-  }
-  this.segment(S.sub(l.b,S.scale(bt,.043)),S.add(l.b,S.scale(bt,.043)),.0065,0xd1dce0,1);
-  this.draw('bearing',l.b,bq,[.023,.023,.023],0x2d4957,.75);this.sphere(l.b,.012,0xbcd0d6);
-  const begin=S.add(l.b,S.scale(l.n,.051)),end=S.add(l.b,S.scale(l.n,g.barrelLength)),rodTip=S.sub(l.a,S.scale(l.n,.032));
-  this.segment(l.b,begin,.011,0xbccbd2,.85);
+  const begin=S.add(l.b,S.scale(l.n,.056)),end=S.add(l.b,S.scale(l.n,g.barrelLength)),rodTip=S.sub(l.a,S.scale(l.n,.053));
+
   this.segment(begin,end,g.barrelRadius*1.10,0x334d5d,.75);
   this.segment(S.add(l.b,S.scale(l.n,.080)),S.add(l.b,S.scale(l.n,.155)),g.barrelRadius*1.12,band,.55);
   this.segment(S.sub(end,S.scale(l.n,.027)),end,g.barrelRadius*1.22,0x203945,.75);
   this.segment(end,rodTip,g.rodRadius,0xd7e0e5,1);
-  this.segment(rodTip,S.sub(l.a,S.scale(l.n,.018)),g.rodRadius*1.16,0x93a9b3,1);
+
   if(selected&&selected.i===i){let p=selected.type==='base'?l.b:selected.type==='top'?l.a:S.scale(S.add(begin,end),.5);this.ring(p,l.q,.031,0xd6954b);}
   if(this.showForces&&sim.last&&!sim.ball){let f=sim.last.forces[i+':slider:0']||0;this.arrow(l.a,S.scale(l.n,f*.0015),f>=0?0x148d8b:0xc66b4a,.14);}
  }

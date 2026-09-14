@@ -9,13 +9,14 @@ const xyz=(s,v)=>rotate(qconj(s.q),v);
 function settings(o={}){
  const z=Object.assign({mass:.12,radius:.026,inertiaRatio:.4,mu:.45,rollingDrag:.015,
   control:true,path:'point',kp:4.5,kd:3.6,maxTilt:.14,maxRate:.7,
-  sensor:'ideal',frequency:60,latency:.035,noise:.0007,dropout:0},o);
- for(const k of ['mass','radius','inertiaRatio','mu','rollingDrag','kp','kd','maxTilt','maxRate','frequency','latency','noise','dropout'])
+  sensor:'ideal',frequency:60,latency:.035,noise:.0007,dropout:0,observerAlpha:.35,observerBeta:.06,commandTau:.08},o);
+ for(const k of ['mass','radius','inertiaRatio','mu','rollingDrag','kp','kd','maxTilt','maxRate','frequency','latency','noise','dropout','observerAlpha','observerBeta','commandTau'])
   if(!Number.isFinite(z[k])||z[k]<0)throw Error('Invalid ball setting: '+k);
- if(z.mass<.01||z.mass>1||z.radius<.008||z.radius>.06||z.inertiaRatio<.1||z.inertiaRatio>1||z.mu>1.5||z.maxTilt>.25||z.maxRate>2||z.frequency<5||z.frequency>240||z.latency>1||z.noise>.02||z.dropout>1)throw Error('Ball settings outside educational range');
+ if(z.mass<.01||z.mass>1||z.radius<.008||z.radius>.06||z.inertiaRatio<.1||z.inertiaRatio>1||z.mu>1.5||z.maxTilt>.25||z.maxRate>2||z.frequency<5||z.frequency>240||z.latency>1||z.noise>.02||z.dropout>1||z.observerAlpha<=0||z.observerAlpha>1||z.observerBeta>1||z.commandTau>.5)throw Error('Ball settings outside educational range');
  if(!['ideal','sampled'].includes(z.sensor)||!['point','circle'].includes(z.path)||typeof z.control!=='boolean')throw Error('Invalid ball mode');
  return z;
 }
+function sensorState(time=0){return{queue:[],nextSample:time,delivered:0,measurement:null,velocity:[0,0],filtered:null,estimate:null,stamp:null,age:0,rng:1234567};}
 function position(sim){return xyz(sim.state,sub(sim.ball.p,sim.state.p)).slice(0,2);}
 function localVelocity(sim){const s=sim.state,b=sim.ball;return xyz(s,sub(sub(b.v,s.v.slice(0,3)),cross(s.v.slice(3,6),sub(b.p,s.p)))).slice(0,2);}
 function enable(sim,o={}){
@@ -27,44 +28,60 @@ function reset(sim,xy=[-.10,.065]){
  const set=sim.ball?.settings||settings(),deck=S.deckGeometry(sim.g),r=rotate(sim.state.q,[...xy,deck.top+set.radius]);
  sim.ball={settings:set,p:add(sim.state.p,r),v:add(sim.state.v.slice(0,3),cross(sim.state.v.slice(3,6),r)),w:sim.state.v.slice(3,6),q:[1,0,0,0],
   phase:'contact',time:0,nextControl:0,target:[0,0],goal:[0,0],targetVelocity:[0,0],targetAcceleration:[0,0],command:[0,0],
-  sensor:{queue:[],nextSample:0,delivered:0,measurement:null,velocity:[0,0],stamp:null,age:0,rng:1234567},
+  sensor:sensorState(),
   contact:{normalImpulse:0,tangentImpulse:[0,0,0],impulse:[0,0,0],platformImpulse:[0,0,0]},trail:[],lastTrail:-1};
  return sim.ball;
 }
 function setTarget(sim,xy){
  const b=sim.ball,max=S.deckGeometry(sim.g).radius-b.settings.radius-.055;
  if(!Array.isArray(xy)||xy.length!==2||!xy.every(Number.isFinite))return false;
- const n=Math.hypot(...xy);b.goal=n>max?scale(xy,max/n):xy.slice();b.settings.path='point';return true;
+ const n=Math.hypot(...xy);b.goal=n>max?scale(xy,max/n):xy.slice();b.transition={start:b.target.slice(),time:b.time,duration:Math.max(.8,1.875*norm(sub(b.goal,b.target))/.07,Math.sqrt(5.8*norm(sub(b.goal,b.target))/.10))};b.settings.path='point';b.circle=null;return true;
 }
 function random(b){let s=b.sensor;s.rng=(1664525*s.rng+1013904223)>>>0;return s.rng/4294967296;}
+// Posterior state lives at the capture timestamp, never the delivery timestamp.
+function updateObserver(sensor,set,frame){
+ if(sensor.stamp!==null&&frame.time<=sensor.stamp+1e-12)return;
+ if(!sensor.filtered){sensor.filtered=frame.p.slice();sensor.velocity=[0,0];}
+ else{const dt=frame.time-sensor.stamp,pred=add(sensor.filtered,scale(sensor.velocity,dt)),error=sub(frame.p,pred);
+  sensor.filtered=add(pred,scale(error,set.observerAlpha));sensor.velocity=add(sensor.velocity,scale(error,set.observerBeta/dt));}
+ sensor.measurement=frame.p.slice();sensor.stamp=frame.time;sensor.delivered++;
+}
 function observe(sim){
  const b=sim.ball,s=b.sensor,set=b.settings,t=b.time;
  if(set.sensor==='ideal'){
-  const p=position(sim);s.measurement=p;s.velocity=localVelocity(sim);s.stamp=t;s.age=0;s.delivered++;return;
+  const p=position(sim);s.measurement=p;s.filtered=p.slice();s.estimate=p.slice();s.velocity=localVelocity(sim);s.stamp=t;s.age=0;s.delivered++;return;
  }
  if(t+1e-10>=s.nextSample){
   const p=position(sim);s.nextSample+=1/set.frequency;
-  if(random(b)>=set.dropout)s.queue.push({time:t,deliver:t+set.latency,p:p.map(x=>x+(random(b)*2-1)*set.noise)});
+  // Coordinate sensor validity/FOV model, not an image detector.
+  const local=xyz(sim.state,sub(b.p,sim.state.p)),deck=S.deckGeometry(sim.g);
+  const visible=Math.hypot(...p)<=deck.radius&&Math.abs(local[2]-deck.top-set.radius)<.03;
+  if(visible&&random(b)>=set.dropout)s.queue.push({time:t,deliver:t+set.latency,p:p.map(x=>x+(random(b)*2-1)*set.noise)});
  }
- while(s.queue.length&&s.queue[0].deliver<=t+1e-10){
-  const v=s.queue.shift();
-  if(s.measurement&&v.time>s.stamp){const dt=v.time-s.stamp;s.velocity=s.velocity.map((x,i)=>.65*x+.35*(v.p[i]-s.measurement[i])/dt);}
-  s.measurement=v.p;s.stamp=v.time;s.delivered++;
- }
+ while(s.queue.length&&s.queue[0].deliver<=t+1e-10)updateObserver(s,set,s.queue.shift());
  s.age=s.stamp===null?t:t-s.stamp;
+ s.estimate=s.filtered?add(s.filtered,scale(s.velocity,Math.min(.25,s.age))):null;
 }
 function control(sim,dt){
- const b=sim.ball,set=b.settings;if(b.time+1e-10<b.nextControl)return;dt=.01;b.nextControl=b.time+dt;
+ const b=sim.ball,set=b.settings;if(b.time+1e-10<b.nextControl)return;dt=.01;b.nextControl+=dt;
  if(set.path==='circle'){
-  const t=b.time,w=.55,r=.08;b.target=[r*Math.cos(w*t),r*Math.sin(w*t)];b.targetVelocity=[-r*w*Math.sin(w*t),r*w*Math.cos(w*t)];b.targetAcceleration=scale(b.target,-w*w);
+  if(!b.circle){b.circle={time:b.time,start:b.target.slice()};}
+  const t=b.time-b.circle.time,w=.35,r=.08,u=clamp(t/2.2,0,1),h=10*u**3-15*u**4+6*u**5,hd=(30*u*u-60*u**3+30*u**4)/2.2,hdd=(60*u-180*u*u+120*u**3)/2.2**2;
+  const c=[r*Math.cos(w*t),r*Math.sin(w*t)],cv=[-r*w*Math.sin(w*t),r*w*Math.cos(w*t)],ca=scale(c,-w*w),delta=sub(c,b.circle.start);
+  b.target=add(b.circle.start,scale(delta,h));b.targetVelocity=add(scale(delta,hd),scale(cv,h));b.targetAcceleration=add(add(scale(delta,hdd),scale(cv,2*hd)),scale(ca,h));
+ }else if(b.transition){
+  const tr=b.transition,u=clamp((b.time-tr.time)/tr.duration,0,1),delta=sub(b.goal,tr.start),w=10*u**3-15*u**4+6*u**5;
+  b.target=add(tr.start,scale(delta,w));b.targetVelocity=scale(delta,(30*u*u-60*u**3+30*u**4)/tr.duration);b.targetAcceleration=scale(delta,(60*u-180*u*u+120*u**3)/tr.duration**2);
+  if(u>=1)b.transition=null;
  }else{b.target=b.goal.slice();b.targetVelocity=[0,0];b.targetAcceleration=[0,0];}
  const s=b.sensor;let tilt=[0,0];
- if(set.control&&s.measurement&&s.age<.25&&b.phase==='contact'){
-  const a=b.target.map((v,i)=>set.kp*(v-s.measurement[i])+set.kd*(b.targetVelocity[i]-s.velocity[i])+b.targetAcceleration[i]);
+ if(set.control&&s.estimate&&s.age<.20){
+  const a=b.target.map((v,i)=>set.kp*(v-s.estimate[i])+set.kd*(b.targetVelocity[i]-s.velocity[i])+b.targetAcceleration[i]);
   const factor=(sim.g.gravity||9.81)/(1+set.inertiaRatio);tilt=[-a[1]/factor,a[0]/factor];
   const n=norm(tilt);if(n>set.maxTilt)tilt=scale(tilt,set.maxTilt/n);
  }
- b.command=b.command.map((v,i)=>v+clamp(tilt[i]-v,-set.maxRate*dt,set.maxRate*dt));
+ const gain=set.commandTau>0?1-Math.exp(-dt/set.commandTau):1;
+ b.command=b.command.map((v,i)=>v+clamp(gain*(tilt[i]-v),-set.maxRate*dt,set.maxRate*dt));
  const goal=S.homeState(sim.g);goal.q=S.qEuler(...b.command,0);
  if(S.feasible(sim.g,goal).ok)sim.target=goal;
 }
@@ -120,15 +137,19 @@ S.step=function(sim,dt=sim.settings.dt){
 };
 S.snapshot=function(sim){const o=baseSnapshot(sim);if(sim.ball)o.ball=JSON.parse(JSON.stringify(sim.ball));return o;};
 S.restore=function(o){const sim=baseRestore(o);if(o.ball){
- const b=o.ball;
- if(!b.settings||Object.keys(settings()).some(k=>!Object.hasOwn(b.settings,k)))throw Error('Incomplete saved ball settings');
- settings(b.settings);
+ const b=JSON.parse(JSON.stringify(o.ball));
+ const required=['mass','radius','inertiaRatio','mu','rollingDrag','control','path','kp','kd','maxTilt','maxRate','sensor','frequency','latency','noise','dropout'];
+ if(!b.settings||required.some(k=>!Object.hasOwn(b.settings,k)))throw Error('Incomplete saved ball settings');
+ b.settings=settings(b.settings);
  for(const [k,n] of [['p',3],['v',3],['w',3],['q',4],['target',2],['goal',2],['command',2]])
   if(!Array.isArray(b[k])||b[k].length!==n||!b[k].every(Number.isFinite))throw Error('Invalid saved ball '+k);
  if(!['contact','fallen','ground'].includes(b.phase)||!Number.isFinite(b.time)||b.time<0||Math.abs(norm(b.q)-1)>.01||sim.g.payloadMass!==0)throw Error('Invalid saved ball state');
  if(!b.sensor||!Array.isArray(b.sensor.queue)||b.sensor.queue.length>300||!Array.isArray(b.trail)||b.trail.length>160)throw Error('Invalid ball sensor/trail state');
  const vector=(v,n)=>Array.isArray(v)&&v.length===n&&v.every(Number.isFinite);
- const sensor=b.sensor;
+ const sensor=b.sensor;if(!Object.hasOwn(sensor,'filtered'))sensor.filtered=sensor.measurement?.slice()||null;if(!Object.hasOwn(sensor,'estimate'))sensor.estimate=sensor.measurement?.slice()||null;
+ if((sensor.filtered!==null&&!vector(sensor.filtered,2))||(sensor.estimate!==null&&!vector(sensor.estimate,2)))throw Error('Invalid observer state');
+ if(b.circle&&(!vector(b.circle.start,2)||!Number.isFinite(b.circle.time)||b.circle.time<0))throw Error('Invalid circle transition');
+ if(b.transition&&(!vector(b.transition.start,2)||!Number.isFinite(b.transition.time)||!Number.isFinite(b.transition.duration)||b.transition.duration<=0))throw Error('Invalid target transition');
  if(!vector(sensor.velocity,2)||(sensor.measurement!==null&&!vector(sensor.measurement,2))||(sensor.stamp!==null&&!Number.isFinite(sensor.stamp))||!Number.isFinite(sensor.nextSample)||!Number.isFinite(sensor.age)||!Number.isInteger(sensor.delivered)||!Number.isInteger(sensor.rng))throw Error('Invalid ball sensor state');
  if(sensor.queue.some(v=>!v||!Number.isFinite(v.time)||!Number.isFinite(v.deliver)||v.deliver<v.time||!vector(v.p,2)))throw Error('Invalid ball sensor queue');
  if(!b.trail.every(v=>vector(v,2))||!Number.isFinite(b.nextControl)||!Number.isFinite(b.lastTrail)||!vector(b.targetVelocity,2)||!vector(b.targetAcceleration,2))throw Error('Invalid ball history');
@@ -136,5 +157,5 @@ S.restore=function(o){const sim=baseRestore(o);if(o.ball){
  if(!Number.isFinite(b.contact.normalImpulse)||b.contact.normalImpulse<0)throw Error('Invalid ball normal impulse');
  sim.ball=JSON.parse(JSON.stringify(b));
  }return sim;};
-root.StewartBall={settings,enable,reset,position,localVelocity,setTarget,disturb,observe,control,advance};
+root.StewartBall={settings,enable,reset,position,localVelocity,setTarget,disturb,observe,control,advance,sensorState,updateObserver};
 })(globalThis);
