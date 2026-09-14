@@ -87,6 +87,13 @@ def build_docs() -> None:
     learn = SITE/'learn'
     learn.mkdir(exist_ok=True)
     shutil.copytree(ROOT/'docs/media',SITE/'media',dirs_exist_ok=True)
+    # Open-codec playback for Chromium builds without proprietary H.264 support.
+    # Keep MP4 downloads and fallback sources; generate both from identical frames.
+    for video in sorted((SITE/'media').glob('*.mp4')):
+        subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(video),
+            '-an','-c:v','libvpx-vp9','-deadline','good','-cpu-used','5',
+            '-crf','32','-b:v','0','-row-mt','1',str(video.with_suffix('.webm'))],
+            check=True,timeout=120)
     template = (ROOT/'tools/learn-template.html').read_text(encoding='utf-8')
     for path in sorted((ROOT/'docs').glob('*.md')):
         source = path.read_text(encoding='utf-8')
@@ -99,6 +106,8 @@ def build_docs() -> None:
             body = body.replace(f'href="../{folder}/',f'href="https://github.com/tinmanlab/stewart_platform/blob/main/{folder}/')
         body = body.replace('href="../CONTRIBUTING.md','href="https://github.com/tinmanlab/stewart_platform/blob/main/CONTRIBUTING.md')
         body = body.replace(PUBLIC,'../')
+        body = re.sub(r'(<source src="([^"]+)\.mp4" type="video/mp4">)',
+            r'<source src="\2.webm" type="video/webm">\1',body)
         page = template.replace('<!--TITLE-->',html.escape(title)).replace('<!--TOC-->',toc).replace('<!--CONTENT-->',body)
         (learn/(path.stem+'.html')).write_text(page,encoding='utf-8')
     shutil.copyfile(learn/'START_HERE.html',learn/'index.html')

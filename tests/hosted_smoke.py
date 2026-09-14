@@ -62,6 +62,21 @@ def check(base,expected=None,readme=False):
         page.set_default_timeout(15000)
         page.set_default_navigation_timeout(45000)
         page.on('pageerror',lambda e:result['page_errors'].append(str(e)))
+        result['codecs']=page.evaluate("""({webm:document.createElement("video").canPlayType("video/webm"),mp4:document.createElement("video").canPlayType('video/mp4; codecs="avc1.42E01E"')})""")
+        def play_video(video,name):
+            stage('Play '+name)
+            video.scroll_into_view_if_needed()
+            # Do not await play() itself: invalid source lists may never settle it.
+            video.evaluate('(v)=>{v.muted=true;v.play().catch(e=>{v.dataset.playbackError=String(e)});}')
+            try:
+                page.wait_for_function('(v)=>v.currentTime>0.05 || v.error || v.dataset.playbackError',arg=video.element_handle(),timeout=15000)
+            finally:
+                state=video.evaluate('(v)=>({source:v.currentSrc,ready:v.readyState,network:v.networkState,time:v.currentTime,duration:Number.isFinite(v.duration)?v.duration:null,media_error:v.error?.message,play_error:v.dataset.playbackError})')
+                result['videos'].append(dict(name=name,**state))
+                stage('Playback result: '+name)
+            assert not state.get('media_error') and not state.get('play_error'),state
+            assert state['ready']>=2 and state['time']>0 and state['duration'] and abs(state['duration']-12)<.1,state
+            video.evaluate('(v)=>v.pause()')
         for name in ['ik','fk','compliance','gravity','passive']:
             stage('Lesson '+name)
             response=page.goto(base+'?demo='+name,wait_until='load',timeout=45000)
@@ -92,6 +107,7 @@ def check(base,expected=None,readme=False):
         assert page.locator('h1').inner_text()=='Move it. Ask why.'
         assert not page.locator('video').evaluate('(v)=>!v.paused')
         page.screenshot(path=str(OUT/'hosted-learn.png'),full_page=True)
+        play_video(page.locator('video').first,'overview')
         stage('Theory and heading anchors')
         page.locator('header nav a',has_text='Theory').click()
         assert page.locator('.toc a').count()>4
@@ -102,20 +118,7 @@ def check(base,expected=None,readme=False):
         page.locator('header nav a',has_text='Videos').click()
         assert page.locator('video').count()==3
         for index,video in enumerate(page.locator('video').all(),1):
-            stage('Play video '+str(index))
-            video.scroll_into_view_if_needed()
-            # Do not await play() inside evaluate: its promise can remain pending
-            # forever when a source fails. Check actual playback with a deadline.
-            video.evaluate('(v)=>{v.muted=true;v.play().catch(e=>{v.dataset.playbackError=String(e)});}')
-            try:
-                page.wait_for_function('(v)=>v.currentTime>0.05 || v.error || v.dataset.playbackError',arg=video.element_handle(),timeout=15000)
-            finally:
-                state=video.evaluate('(v)=>({source:v.currentSrc,ready:v.readyState,network:v.networkState,time:v.currentTime,duration:v.duration,media_error:v.error?.message,play_error:v.dataset.playbackError})')
-                result['videos'].append(state)
-                stage('Playback result '+str(index))
-            assert not state.get('media_error') and not state.get('play_error'),state
-            assert state['ready']>=2 and state['time']>0 and abs(state['duration']-12)<.1,state
-            video.evaluate('(v)=>v.pause()')
+            play_video(video,'lesson '+str(index))
         stage('Gallery images')
         for image in page.locator('img:visible').all():
             image.scroll_into_view_if_needed()
