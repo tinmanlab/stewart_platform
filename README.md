@@ -8,7 +8,7 @@ A browser-based 3D physics playground: move a platform, push it, change its join
 
 [**Open the simulator →**](https://tinmanlab.github.io/stewart_platform/) &nbsp; · &nbsp; [**Start learning**](docs/START_HERE.md) &nbsp; · &nbsp; [**Watch the demos**](docs/GALLERY.md)
 
-[![Actual English simulator: a six-leg platform with pose controls and force readouts](docs/media/overview.webp)](https://tinmanlab.github.io/stewart_platform/)
+[![Six-leg Stewart platform: moving table, telescoping actuators and ball joints](docs/media/anatomy.svg)](https://tinmanlab.github.io/stewart_platform/)
 
 No account. No runtime dependencies. No physical hardware connection.
 
@@ -47,7 +47,7 @@ Clips use actual browser controls and the fixed-step physics solver. Playback is
 
 ## What is inside?
 
-![Platform anatomy: two plates, six telescoping legs and ball joints](docs/media/anatomy.svg)
+![Targets flow through control and effort allocation into physical dynamics](docs/media/control-loop.svg)
 
 **Kinematics:** analytic inverse kinematics, independently solved local forward kinematics, length Jacobian and a scaled conditioning diagnostic.
 

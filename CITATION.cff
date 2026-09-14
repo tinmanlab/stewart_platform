@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "Please cite this software and the original references relevant to your use."
+title: "Stewart Platform Lab"
+type: software
+version: 1.1.0
+authors:
+  - name: "Tinman Lab"
+repository-code: "https://github.com/tinmanlab/stewart_platform"
+url: "https://tinmanlab.github.io/stewart_platform/"
+license: MIT
+abstract: "An educational browser-based 6-SPS rigid-body simulator with kinematics, control experiments, and explicit validation boundaries."
+keywords:
+  - robotics
+  - Stewart platform
+  - parallel robot
+  - education
+  - impedance control
