@@ -58,7 +58,9 @@ def build_app() -> None:
     (SITE/'index.html').write_text(assemble(ROOT/'src'),encoding='utf-8')
     (SITE/'ko').mkdir(exist_ok=True)
     (SITE/'ko/index.html').write_bytes(korean_original())
-    (SITE/'.nojekyll').touch()
+    # Actions deploys the built artifact directly; its uploader excludes dotfiles.
+    # Remove old Jekyll sentinels so the manifest describes actual hosted bytes.
+    (SITE/'.nojekyll').unlink(missing_ok=True)
     write_manifest()
     print('Built offline English app and checksum-verified Korean archive.')
 

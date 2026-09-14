@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 import re
 import unittest
+import subprocess
+import tarfile
+import tempfile
 ROOT=Path(__file__).resolve().parents[1]
 class Elements(HTMLParser):
     def __init__(self):super().__init__();self.ids=[];self.links=[];self.headings=[]
@@ -21,6 +24,19 @@ class Publishing(unittest.TestCase):
         self.assertEqual(files,set(m['files_sha256']))
         for path,sha in m['files_sha256'].items():
             self.assertEqual(hashlib.sha256((ROOT/'site'/path).read_bytes()).hexdigest(),sha,path)
+    def test_manifest_survives_pages_archive(self):
+        # Mirror the filtering in the commit-pinned upload-pages-artifact action.
+        manifest=json.loads((ROOT/'site/build.json').read_text())
+        with tempfile.TemporaryDirectory() as folder:
+            archive=Path(folder)/'pages.tar'
+            subprocess.run(['tar','--dereference','--hard-dereference',
+                '--directory',str(ROOT/'site'),'-cf',str(archive),
+                '--exclude=.git','--exclude=.github','--exclude=.[^/]*','.'],check=True)
+            with tarfile.open(archive) as pages:
+                published={member.name.removeprefix('./') for member in pages if member.isfile()}
+        self.assertEqual(set(manifest['files_sha256'])|{'build.json'},published,
+            'Manifest must describe bytes retained by Pages packaging, not excluded local files')
+
     def test_headings_have_unique_targets(self):
         for p in (ROOT/'site/learn').glob('*.html'):
             doc=Elements();doc.feed(p.read_text())

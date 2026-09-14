@@ -5,6 +5,7 @@ all published bytes, real document navigation, playable video and direct lessons
 """
 from __future__ import annotations
 import argparse
+import faulthandler
 from functools import partial
 import hashlib
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -27,6 +28,13 @@ def fetch(url):
 
 def check(base,expected=None,readme=False):
     base=base.rstrip('/')+'/'
+    OUT.mkdir(exist_ok=True)
+    result={'base_url':base,'passed':False,'page_errors':[],'lessons':{},'videos':[]}
+    def stage(name):
+        result['stage']=name
+        (OUT/'hosted-progress.json').write_text(json.dumps(result,indent=2))
+        print('HOSTED:',name,flush=True)
+    stage('Fetch source manifest')
     manifest=None
     for attempt in range(12):
         try:
@@ -40,18 +48,22 @@ def check(base,expected=None,readme=False):
     assets=manifest['files_sha256']
     for name in ['index.html','ko/index.html','learn/index.html','learn/GALLERY.html','media/lab-preview.gif']:
         assert name in assets,name
+    stage('Verify every published file hash')
     for path,sha in assets.items():
         assert not path.startswith('/') and '..' not in PurePosixPath(path).parts,path
         data=fetch(urljoin(base,path)+'?verify='+sha[:16])
         assert hashlib.sha256(data).hexdigest()==sha,('Published bytes differ',path)
     assert hashlib.sha256(fetch(base+'ko/index.html')).hexdigest()=='a9e3ed420a902c0c6dc24a87596c380c4cb9d63280104ad7cd2a389d8cfdc870'
-    result={'base_url':base,'source_commit':manifest['source_commit'],'verified_files':len(assets),'page_errors':[],'lessons':{}}
-    OUT.mkdir(exist_ok=True)
+    result.update(source_commit=manifest['source_commit'],verified_files=len(assets))
     with sync_playwright() as p:
+        stage('Launch browser')
         browser=p.chromium.launch(executable_path=os.getenv('CHROMIUM_EXECUTABLE') or shutil.which('chromium'),headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
         page=browser.new_page(viewport={'width':1440,'height':900},reduced_motion='reduce')
+        page.set_default_timeout(15000)
+        page.set_default_navigation_timeout(45000)
         page.on('pageerror',lambda e:result['page_errors'].append(str(e)))
         for name in ['ik','fk','compliance','gravity','passive']:
+            stage('Lesson '+name)
             response=page.goto(base+'?demo='+name,wait_until='load',timeout=45000)
             assert response.status==200
             page.wait_for_function('window.__stewartReady === true')
@@ -75,29 +87,44 @@ def check(base,expected=None,readme=False):
                 assert page.evaluate('lab.sim.joints[0].slider.k')==1450
                 assert page.evaluate('lab.sim.joints[0].slider.c')==55
         # Follow links as a user does. This catches /project/ subpath errors.
+        stage('Follow learning navigation')
         page.click('a.learn-link');page.wait_for_url('**/learn/index.html')
         assert page.locator('h1').inner_text()=='Move it. Ask why.'
         assert not page.locator('video').evaluate('(v)=>!v.paused')
         page.screenshot(path=str(OUT/'hosted-learn.png'),full_page=True)
+        stage('Theory and heading anchors')
         page.locator('header nav a',has_text='Theory').click()
         assert page.locator('.toc a').count()>4
         page.locator('.toc summary').click()
         page.locator('.toc a').last.click()
         assert page.evaluate('location.hash.length>1')
+        stage('Open video gallery')
         page.locator('header nav a',has_text='Videos').click()
         assert page.locator('video').count()==3
-        for video in page.locator('video').all():
+        for index,video in enumerate(page.locator('video').all(),1):
+            stage('Play video '+str(index))
             video.scroll_into_view_if_needed()
-            video.evaluate('(v)=>{v.muted=true;return v.play()}')
-            page.wait_for_timeout(300)
-            assert video.evaluate('(v)=>v.readyState>=2 && v.currentTime>0 && Math.abs(v.duration-12)<.1')
+            # Do not await play() inside evaluate: its promise can remain pending
+            # forever when a source fails. Check actual playback with a deadline.
+            video.evaluate('(v)=>{v.muted=true;v.play().catch(e=>{v.dataset.playbackError=String(e)});}')
+            try:
+                page.wait_for_function('(v)=>v.currentTime>0.05 || v.error || v.dataset.playbackError',arg=video.element_handle(),timeout=15000)
+            finally:
+                state=video.evaluate('(v)=>({source:v.currentSrc,ready:v.readyState,network:v.networkState,time:v.currentTime,duration:v.duration,media_error:v.error?.message,play_error:v.dataset.playbackError})')
+                result['videos'].append(state)
+                stage('Playback result '+str(index))
+            assert not state.get('media_error') and not state.get('play_error'),state
+            assert state['ready']>=2 and state['time']>0 and abs(state['duration']-12)<.1,state
             video.evaluate('(v)=>v.pause()')
+        stage('Gallery images')
         for image in page.locator('img:visible').all():
             image.scroll_into_view_if_needed()
-            assert image.evaluate('(i)=>i.complete && i.naturalWidth>0')
+            page.wait_for_function('(i)=>i.complete && i.naturalWidth>0',arg=image.element_handle())
+        stage('Original Korean app')
         page.goto(base+'ko/index.html',wait_until='load')
         page.wait_for_function('window.__stewartReady === true')
         result['korean_initializes']=True
+        stage('Mobile layout')
         page.goto(base+'?demo=ik');page.wait_for_function('window.__stewartReady === true')
         page.set_viewport_size({'width':390,'height':844})
         assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+2')
@@ -105,6 +132,7 @@ def check(base,expected=None,readme=False):
         page.screenshot(path=str(OUT/'hosted-mobile.png'),full_page=True)
         if readme:
             # Check the actual GitHub-rendered README, including its image proxy.
+            stage('GitHub-rendered README animation')
             gh=browser.new_page(viewport={'width':1440,'height':1000},reduced_motion='no-preference')
             url='https://github.com/tinmanlab/stewart_platform/tree/'+expected+'#readme'
             gh.goto(url,wait_until='domcontentloaded',timeout=60000)
@@ -115,10 +143,12 @@ def check(base,expected=None,readme=False):
             gh.screenshot(path=str(OUT/'github-readme.png'))
         result['browser_version']=browser.version
         assert not result['page_errors'],result['page_errors']
+        stage('Close browser')
         browser.close()
     result['passed']=True
+    stage('Passed')
     (OUT/'hosted-results.json').write_text(json.dumps(result,indent=2))
-    print(json.dumps(result,indent=2))
+    print(json.dumps(result,indent=2),flush=True)
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
@@ -127,6 +157,7 @@ if __name__=='__main__':
     parser.add_argument('--readme',action='store_true')
     args=parser.parse_args()
     if args.readme and not args.expected_commit:parser.error("--readme requires --expected-commit")
+    faulthandler.dump_traceback_later(90,repeat=True)
     server=None
     try:
         if not args.base_url:
@@ -139,3 +170,4 @@ if __name__=='__main__':
         check(args.base_url,args.expected_commit,args.readme)
     finally:
         if server:server.shutdown()
+        faulthandler.cancel_dump_traceback_later()
