@@ -6,13 +6,13 @@ The orange ball is a separate rigid body. A controller changes the platform's ro
 
 ## Play in one minute
 
-Choose **Ball Lab**, then **Balance at center**. Press Run if paused. Click/drag the top-view target or use arrow keys (10 mm steps). Trace a circle, Push the ball, or compare Ball feedback OFF. OFF requests level hold with motors on; it is not Drives off. Try a fall deliberately launches the ball outward near the edge.
+Choose **Ball Lab**, then **Balance at center**. Press Run if paused. Click the actual 3D deck to set a goal; drag the 3D scene to orbit. The top view also supports click/drag or arrow keys (10 mm steps). Trace a circle, Push the ball, or compare Ball feedback OFF. OFF requests level hold with motors on; it is not Drives off. Try a fall deliberately launches the ball outward near the edge.
 
 Reset ball & balance respawns relative to the current plate, clears the path/observer/measurement queues/trail, and enables ball feedback while preserving drive/sensor parameters. Reset tested setup also restores the reference platform, servo and clock. Exit to platform workbench deliberately starts a fresh classic experiment. Save project first.
 
 Tilt the plate manually releases the pose target to IK controls; Manual effort uses individual active joint commands and starts paused. The automatic ball controller never writes targets in those manual states. Return to ball control (header) or the Ball Lab tab resumes the existing drive; if the ball fell, that action resets it first. Viewing another inspector tab alone does not alter control. See [the operating guide](START_HERE.md) for recovery paths and disabled controls.
 
-Orange denotes true ball position, teal the target, and blue the delivered position measurement, and purple the predicted current position. The inset is coordinate telemetry, **not a camera image**. Its dashed circle is a conservative visual guide, not a wall or a proof of safety.
+Orange denotes true ball position, a red crosshair the accepted goal (or instantaneous circle target), blue the delivered position measurement, and purple the predicted current position. The crosshair changes immediately, even while paused; the controller still follows its smooth reference transition. Clicks near the rim are limited to the existing inner operating area; the crosshair shows that accepted position. The inset is coordinate telemetry, **not a camera image**. Its dashed circle is a conservative visual guide, not a wall or a proof of safety.
 
 ## Clear deck and actual joint centers
 
@@ -50,6 +50,16 @@ a = g sin(θ) / [1 + I/(m r²)] = (5/7) g sin(θ)
 ```
 
 The reference is tested with a fixed plate and angular loss disabled. It is not substituted for the moving-contact calculation. Once the sphere's projected centre leaves the finite deck, it loses support and falls. Sidewall/rim collision, ball–leg collision, detailed edge contact and elastic deformation are not modeled. The floor provides a simple damped landing.
+
+## View, picking and trajectory
+
+Startup and Home view use the same elevated front three-quarter camera (azimuth −1.34 rad, elevation 0.52 rad, distance 1.98 m, look-at [0, 0, 0.34] m), based on the supplied reference view. This changes the camera, not the initial physics time, controller profile or ball state.
+
+Deck picking unprojects CSS pixel coordinates through the current camera and intersects the actual tilted top face. It ignores back faces and off-deck clicks. A drag or cancelled pointer gesture does not also select a goal. Picking does not resume a suspended controller or overwrite manual pose control; use Return to ball control first. The Target toggle hides the 3D crosshair; the top-view input retains its own goal marker.
+
+The green trail stores at most 160 ball-centre **world XYZ** samples, about 40 ms apart. Historical points do not follow later plate motion. The latest sample connects to the current ball position, including during falling and landing. Only the inset projects those points into the current plate frame for its 2D view. This is a display history, not a sensor measurement or a control input.
+
+Saved ball state tags the history with `trailFrame: "world"`. Loading an older file with untagged XY history clears only that trail: historical world heights cannot be reconstructed without the old platform poses. Ball, drive and controller states are preserved. New tagged histories roundtrip exactly; malformed or unknown-frame history is rejected. Reset ball clears the history. The existing GPU depth test and approximate Canvas painter fallback remain different rendering paths, not new collision models.
 
 ## Controller and sensing
 

@@ -63,12 +63,12 @@ R.prototype.hardwareMeshes=function(){
 // Camera, viewport, target, joint mode and force-overlay changes still invalidate the cache.
 const render=R.prototype.render;
 R.prototype.render=function(sim,selected){
- const rect=this.canvas.getBoundingClientRect(),key=[this.azimuth,this.elevation,this.distance,...this.target,rect.width,rect.height,globalThis.devicePixelRatio||1,this.showGhost,this.showForces,selected?.i,selected?.type,...sim.settings.external,...sim.joints.flatMap(j=>[j.slider.mode,j.base.mode,j.top.mode])].join('|');
+ const rect=this.canvas.getBoundingClientRect(),key=[this.azimuth,this.elevation,this.distance,...this.target,rect.width,rect.height,globalThis.devicePixelRatio||1,this.showGhost,this.showForces,selected?.i,selected?.type,...sim.settings.external,...(sim.ball?[...sim.ball.goal,...sim.ball.target,sim.ball.settings.path,...sim.ball.p,...sim.ball.q,sim.ball.lastTrail]:[]),...sim.joints.flatMap(j=>[j.slider.mode,j.base.mode,j.top.mode])].join('|');
  const last=this.lastRendered;
  if(last&&last.sim===sim&&last.state===sim.state&&last.target===sim.target&&last.ball===sim.ball&&last.preview===this.previewPose&&last.key===key)return;
  render.call(this,sim,selected);this.lastRendered={sim,state:sim.state,target:sim.target,ball:sim.ball,preview:this.previewPose,key};
 };
-R.prototype.home=function(){this.azimuth=.88;this.elevation=.58;this.distance=1.65;this.target=[0,0,.34];};
+R.prototype.home=function(){this.azimuth=-1.34;this.elevation=.52;this.distance=1.98;this.target=[0,0,.34];};
 R.prototype.renderMechanism=function(sim,selected){
  this.hardwareMeshes();
  const g=sim.g,s=sim.state,k=S.kinematics(g,s),d=S.deckGeometry(g),id=[1,0,0,0],at=(p)=>S.add(s.p,S.rotate(s.q,p));this.lastKin=k;
@@ -131,8 +131,11 @@ R.prototype.renderMechanism=function(sim,selected){
  if(sim.ball){
   const b=sim.ball,top=d.top+.001;
   this.ring(at([0,0,top]),s.q,d.radius-b.settings.radius-.02,0xc6a875);
-  if(this.showGhost)this.ring(at([...b.target,top+.001]),s.q,.018,0x118b83);
-  for(let i=Math.max(1,b.trail.length-100);i<b.trail.length;i++)this.segment(at([...b.trail[i-1],top+.002]),at([...b.trail[i],top+.002]),.0011,0x6fa7a4);
+  // Show the accepted click immediately, not the slower governed reference.
+  if(this.showGhost)this.crosshair(at([...(b.settings.path==='point'?b.goal:b.target),top+.001]),s.q,.024,0xd63535);
+  // True ball-centre history: falling samples stay where they happened in world.
+  for(let i=1;i<b.trail.length;i++)this.segment(b.trail[i-1],b.trail[i],.0011,0x6fa7a4);
+  if(b.trail.length)this.segment(b.trail[b.trail.length-1],b.p,.0011,0x6fa7a4);
   this.draw('sphere',b.p,b.q,[b.settings.radius,b.settings.radius,b.settings.radius],0xdf7f35,.55);
   // Three colored meridians make physical rolling visible.
   const qs=[id,S.qexp([Math.PI/2,0,0]),S.qexp([0,Math.PI/2,0])];

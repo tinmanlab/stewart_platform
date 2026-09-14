@@ -13,9 +13,11 @@ A free browser lab for kinematics, dynamics and feedback control. No account, in
 
 *Real solver states, edited into a short loop—not a speed benchmark. [Still image](https://tinmanlab.github.io/stewart_platform/media/lab-preview.png) · [Video with pause controls](https://tinmanlab.github.io/stewart_platform/learn/index.html). Motion preferences may select the still or start the lab paused.*
 
+The README is an animated preview. **Live deck clicks and X/Y/Z–roll/pitch/yaw sliders run on [GitHub Pages](https://tinmanlab.github.io/stewart_platform/?demo=ball)**, not inside this document.
+
 ## One minute to play
 
-Press **Run** when paused. Click or drag a target in the small top view; the controller tilts the plate, not the ball. Try **Trace a circle** and **Push the ball**. The dashed boundary is a guide, not an invisible wall.
+Press **Run** when paused. **Click the 3D deck** to place the red goal crosshair; drag the scene to orbit. The small top view also supports click/drag and arrow keys. The controller tilts the plate, not the ball. Its green world-space trail follows the ball off the edge and down to the floor. Try **Trace a circle** and **Push the ball**. The dashed boundary is a guide, not an invisible wall.
 
 **Take over and come back:** use **Tilt the plate manually**, or select **Manual effort** in the Control tab. The header's **Return to ball control** and the **Ball Lab** tab restore automatic feedback without rebuilding the drive. Manual effort starts paused because position holding is off. Reset a fallen ball with **Reset ball & balance**; use **Reset tested setup** after a numerical stop.
 

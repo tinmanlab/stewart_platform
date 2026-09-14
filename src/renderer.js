@@ -9,14 +9,64 @@ function sphere(segments=20,rings=12){let v=[],n=[];function p(a,b){return[Math.
 function cylinder(seg=32){let v=[],n=[];function tri(pts,norms){pts.forEach((p,i)=>{v.push(...p);n.push(...norms[i]);});}for(let i=0;i<seg;i++){let a=i*2*Math.PI/seg,b=(i+1)*2*Math.PI/seg,na=[Math.cos(a),Math.sin(a),0],nb=[Math.cos(b),Math.sin(b),0],p=[na[0],na[1],-.5],q=[nb[0],nb[1],-.5],r=[nb[0],nb[1],.5],s=[na[0],na[1],.5];tri([p,q,r],[na,nb,nb]);tri([p,r,s],[na,nb,na]);tri([[0,0,.5],s,r],Array(3).fill([0,0,1]));tri([[0,0,-.5],q,p],Array(3).fill([0,0,-1]));}return{v,n};}
 function box(){let v=[],n=[],faces=[[[1,0,0],[[.5,-.5,-.5],[.5,.5,-.5],[.5,.5,.5],[.5,-.5,.5]]],[[-1,0,0],[[-.5,.5,-.5],[-.5,-.5,-.5],[-.5,-.5,.5],[-.5,.5,.5]]],[[0,1,0],[[-.5,.5,-.5],[.5,.5,-.5],[.5,.5,.5],[-.5,.5,.5]]],[[0,-1,0],[[.5,-.5,-.5],[-.5,-.5,-.5],[-.5,-.5,.5],[.5,-.5,.5]]],[[0,0,1],[[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]]],[[0,0,-1],[[-.5,.5,-.5],[.5,.5,-.5],[.5,-.5,-.5],[-.5,-.5,-.5]]]];for(let [nm,ps]of faces)for(let i of[0,1,2,0,2,3]){v.push(...ps[i]);n.push(...nm);}return{v,n};}
 class Renderer{
- constructor(canvas,onPick){this.canvas=canvas;this.gl=canvas.getContext('webgl',{antialias:true,alpha:false,preserveDrawingBuffer:true});this.onPick=onPick;this.azimuth=.8;this.elevation=.43;this.distance=1.9;this.target=[0,0,.27];this.showForces=true;this.showGhost=true;this.lastKin=null;
+ constructor(canvas,onPick){this.canvas=canvas;this.gl=canvas.getContext('webgl',{antialias:true,alpha:false,preserveDrawingBuffer:true});this.onPick=onPick;this.home();this.showForces=true;this.showGhost=true;this.lastKin=null;
  if(!this.gl){this.cpu=true;this.ctx=canvas.getContext('2d');if(!this.ctx)throw Error('Neither WebGL nor Canvas2D is available.');this.meshData={sphere:sphere(12,8),cylinder:cylinder(16),hex:cylinder(6),box:box()};this.bindEvents();return;}
  let gl=this.gl,vs=`attribute vec3 aPosition;attribute vec3 aNormal;uniform mat4 uMVP;uniform mat4 uModel;uniform mat3 uNormal;varying vec3 vN;varying vec3 vP;void main(){vec4 p=uModel*vec4(aPosition,1.);vP=p.xyz;vN=uNormal*aNormal;gl_Position=uMVP*vec4(aPosition,1.);}`,fs=`precision mediump float;varying vec3 vN;varying vec3 vP;uniform vec3 uColor;uniform vec3 uEye;uniform float uMetal;void main(){vec3 n=normalize(vN);vec3 l=normalize(vec3(-.4,-.8,1.4));float d=max(0.,dot(n,l));float d2=max(0.,dot(n,normalize(vec3(.8,.3,.6))));vec3 h=normalize(l+normalize(uEye-vP));float spec=pow(max(0.,dot(n,h)),38.)*uMetal;vec3 c=uColor*(.40+.5*d+.18*d2)+vec3(spec*.5);gl_FragColor=vec4(c,1.);}`;
  const shader=(type,src)=>{let s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};let p=gl.createProgram();gl.attachShader(p,shader(gl.VERTEX_SHADER,vs));gl.attachShader(p,shader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));this.program=p;gl.useProgram(p);this.loc={};for(let a of['aPosition','aNormal'])this.loc[a]=gl.getAttribLocation(p,a);for(let a of['uMVP','uModel','uNormal','uColor','uEye','uMetal'])this.loc[a]=gl.getUniformLocation(p,a);
  this.meshes={sphere:this.mesh(sphere()),cylinder:this.mesh(cylinder()),hex:this.mesh(cylinder(6)),box:this.mesh(box())};gl.enable(gl.DEPTH_TEST);gl.clearColor(.918,.937,.944,1);this.bindEvents();
  }
  mesh({v,n}){let gl=this.gl,ob={count:v.length/3};for(let [key,data]of[['v',v],['n',n]]){ob[key]=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ob[key]);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);}return ob;}
- bindEvents(){let c=this.canvas,down=null; c.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,az:this.azimuth,el:this.elevation,moved:false};c.setPointerCapture(e.pointerId);});c.addEventListener('pointermove',e=>{if(!down)return;let dx=e.clientX-down.x,dy=e.clientY-down.y;if(Math.abs(dx)+Math.abs(dy)>4)down.moved=true;this.azimuth=down.az-dx*.007;this.elevation=S.clamp(down.el+dy*.006,.08,1.45);});c.addEventListener('pointerup',e=>{if(down&&!down.moved&&this.onPick&&this.lastKin){let rect=c.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,best=null,min=32;for(let l of this.lastKin.legs)for(let[type,pos]of[['base',l.b],['top',l.a],['slider',S.scale(S.add(l.b,l.a),.5)]]){let p=this.project(pos),d=Math.hypot(p[0]-x,p[1]-y);if(d<min){min=d;best={i:l.index,type};}}if(best)this.onPick(best);}down=null;});c.addEventListener('wheel',e=>{e.preventDefault();this.distance=S.clamp(this.distance*Math.exp(e.deltaY*.001),.6,5);},{passive:false});c.addEventListener('dblclick',()=>this.home());c.addEventListener('contextmenu',e=>e.preventDefault());}
+ bindEvents(){
+  const c=this.canvas;let down=null;
+  c.addEventListener('pointerdown',e=>{
+   if(e.button!==0||down)return;
+   down={id:e.pointerId,x:e.clientX,y:e.clientY,az:this.azimuth,el:this.elevation,moved:false};c.setPointerCapture(e.pointerId);
+  });
+  c.addEventListener('pointermove',e=>{
+   if(!down||down.id!==e.pointerId)return;
+   const dx=e.clientX-down.x,dy=e.clientY-down.y;
+   if(Math.abs(dx)+Math.abs(dy)>4)down.moved=true;
+   if(down.moved){this.azimuth=down.az-dx*.007;this.elevation=S.clamp(down.el+dy*.006,.08,1.45);}
+  });
+  c.addEventListener('pointerup',e=>{
+   if(!down||down.id!==e.pointerId)return;
+   const click=!down.moved;down=null;
+   if(c.hasPointerCapture(e.pointerId))c.releasePointerCapture(e.pointerId);
+   if(!click)return;
+   const rect=c.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+   // Ball picking has priority on the visible deck; joint inspection still works
+   // below/outside it. Dragging always orbits and never also creates a target.
+   if(this.onSurfacePick?.(x,y))return;
+   if(this.onPick&&this.lastKin){let best=null,min=32;
+    for(const l of this.lastKin.legs)for(const [type,pos] of [['base',l.b],['top',l.a],['slider',S.scale(S.add(l.b,l.a),.5)]]){
+     const p=this.project(pos),d=Math.hypot(p[0]-x,p[1]-y);if(d<min){min=d;best={i:l.index,type};}
+    }
+    if(best)this.onPick(best);
+   }
+  });
+  for(const event of ['pointercancel','lostpointercapture'])c.addEventListener(event,()=>{down=null;});
+  c.addEventListener('wheel',e=>{e.preventDefault();this.distance=S.clamp(this.distance*Math.exp(e.deltaY*.001),.6,5);},{passive:false});
+  c.addEventListener('dblclick',()=>this.home());c.addEventListener('contextmenu',e=>e.preventDefault());
+ }
+ // CSS-pixel ray / *actual tilted deck* intersection. No fixed top-view scale.
+ pickDeck(sim,x,y){
+  if(!this.vp||this.width<=0||this.height<=0||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>this.width||y>this.height)return null;
+  const matrix=Array.from({length:4},(_,i)=>Array.from({length:4},(_,j)=>this.vp[j*4+i]));
+  const unproject=z=>{const q=S.solve(matrix,[2*x/this.width-1,1-2*y/this.height,z,1]);return S.scale(q.slice(0,3),1/q[3]);};
+  const near=unproject(-1),far=unproject(1),dir=S.sub(far,near),state=sim.state,deck=S.deckGeometry(sim.g);
+  const normal=S.rotate(state.q,[0,0,1]),den=S.dot(normal,dir);
+  if(den>=-1e-8)return null; // parallel or back-facing: do not pick through a deck
+  const origin=S.add(state.p,S.rotate(state.q,[0,0,deck.top])),t=S.dot(normal,S.sub(origin,near))/den;
+  if(t<0||t>1)return null;
+  const local=S.rotate(S.qconj(state.q),S.sub(S.add(near,S.scale(dir,t)),state.p));
+  return Math.hypot(local[0],local[1])<=deck.radius?local.slice(0,2):null;
+ }
+ crosshair(p,q,r=.024,color=0xd63535){
+  const at=v=>S.add(p,S.rotate(q,v));
+  this.segment(at([-r,0,0]),at([r,0,0]),.0018,color,0);
+  this.segment(at([0,-r,0]),at([0,r,0]),.0018,color,0);
+  this.ring(p,q,r*.45,color);
+ }
 
  drawCPU(type,p,q,sc,color,metal){
   if(type==='box'&&p[2]<0)return; // Ground / grid are rendered before depth-sorted 3D objects.

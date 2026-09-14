@@ -18,6 +18,7 @@ node tests/core.test.cjs
 node tests/endurance.test.cjs
 node tests/ball.test.cjs
 node tests/ball_invalid.test.cjs
+node --test tests/target_trail.test.cjs
 node tests/realism.test.cjs
 node tests/realism_dynamics.test.cjs balance
 node tests/realism_dynamics.test.cjs play
@@ -27,6 +28,7 @@ python tests/browser_smoke.py
 python tests/experience.test.py
 python tests/ball_browser.py --serve
 python tests/usability.test.py
+python tests/target_trail_browser.py
 python tools/record_demos.py        # FFmpeg must be on PATH
 python tools/build_preview.py
 python build.py --site

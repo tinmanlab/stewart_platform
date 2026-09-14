@@ -56,7 +56,7 @@ class Journeys(unittest.TestCase):
   p=self.page;p.set_viewport_size({'width':390,'height':844});self.assertLessEqual(p.evaluate('document.documentElement.scrollWidth'),392);self.assertTrue(p.locator('#ballHome').is_visible());p.click('[data-tab="control"]');p.click('[data-mode="manual"]');p.locator('#ballHome').press('Enter');self.assertEqual(p.evaluate('lab.sim.settings.mode'),'ik');self.assertTrue(p.locator('#ballTop').is_visible());p.screenshot(path=str(ROOT/'artifacts/usability-mobile.png'),full_page=True)
  def test_ball_target_overlay_toggle_has_effect(self):
   p=self.page
-  p.evaluate("window.originalRing=lab.renderer.ring;lab.renderer.ring=function(p,q,r,color){if(color===0x118b83)window.targetRings++;return originalRing.call(this,p,q,r,color);};void 0")
+  p.evaluate("window.originalRing=lab.renderer.ring;lab.renderer.ring=function(p,q,r,color){if(color===0xd63535)window.targetRings++;return originalRing.call(this,p,q,r,color);};void 0")
   def count():return p.evaluate("(()=>{window.targetRings=0;lab.renderer.lastRendered=null;lab.renderer.render(lab.sim,null);return targetRings;})()")
   self.assertEqual(count(),1);p.click('#ghostToggle');self.assertEqual(count(),0)
  def test_fk_previous_seed_not_replaced_by_live_telemetry(self):

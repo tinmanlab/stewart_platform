@@ -27,7 +27,7 @@ const panel=document.createElement('section');panel.className='panel';panel.id='
 <div class="ball-row"><label for="ballCurrent">Current limit (A)</label><input id="ballCurrent" type="number" min=".1" max="5" step=".1" value="2.5"></div>
 <div class="ball-row"><label for="ballFrequency">Position sampling (Hz)</label><input id="ballFrequency" type="number" min="20" max="100" step="5" value="50"></div>
 <div id="driveStatus" style="font:11px/1.6 ui-monospace,monospace;white-space:pre-line"></div></details>
-<p id="ballHelp">Click or drag a target in the top view; arrow keys move it by 10 mm. Orange is the simulated ball, teal is the target, blue is the delivered measurement, and purple is the predicted position. The dashed circle is a guide, not a wall. <strong>Pause freezes physics; press Run to see your changes.</strong></p>
+<p id="ballHelp">Click the 3D deck, or click/drag the top view; arrow keys move the target by 10 mm. Orange is the simulated ball, the red crosshair is the accepted goal (or circle target), blue is the delivered measurement, and purple is the predicted position. The green trail follows the ball in 3D, including falls. The dashed circle is a guide, not a wall. <strong>Pause freezes physics; press Run to see your changes.</strong></p>
 <details><summary>What the controls and sensors mean</summary><p class="bodycopy">Ball feedback OFF requests a level plate with motors on; it is not Drives off. Tilt manually keeps the current ball and drive but releases the target to the pose sliders. The Ball Lab tab or Return to ball control resumes automatic control without recreating the mechanism. Reset ball &amp; balance clears the ball, trajectory and observer while preserving the drive and sensor parameters. Reset tested setup starts a fresh 24 V servo run. Save project before resetting or changing drive profile.<br><br>The top view is coordinates, not camera pixels. Ideal state uses exact position and velocity. Sampled position uses capture-time observations and prediction across latency. Changing sensing parameters clears pending observations. Encoder/gyro/FK feedback belongs to the servo profile. All hardware values are assumptions, not calibration.</p></details>
 <button id="ballCSV" style="width:100%">Ball CSV (positions + drive)</button><button id="ballExit" style="width:100%;margin-top:8px">Exit to platform workbench (resets) →</button>
 `;
@@ -106,6 +106,16 @@ function numberInput(id,oldValue,min,max,apply){
 for(const [id,key,factor,min,max] of [['ballSpeed','velocityLimit',.001,20,100],['ballCurrent','maxCurrent',1,.1,5]])$(id).onchange=()=>{const a=lab.sim.actuator;if(a)numberInput(id,a.parameters[key]/factor,min,max,v=>a.parameters[key]=v*factor);};
 for(const [id,key,factor,min,max] of [['ballFrequency','frequency',1,20,100],['ballLatency','latency',.001,0,200],['ballNoise','noise',.001,0,5]])$(id).onchange=()=>{const b=need();numberInput(id,b.settings[key]/factor,min,max,v=>{b.settings[key]=v*factor;b.sensor=B.sensorState(b.time);});};
 document.addEventListener('stewart:loaded',sync);
+// A short click selects a ball goal only while automatic ball control owns IK.
+ // This callback consumes only hits on the actual top face, preserving orbit/pick.
+ lab.renderer.onSurfacePick=(x,y)=>{
+  const b=lab.sim.ball;
+  if(!b||!b.settings.control||lab.sim.settings.mode!=='ik'||lab.sim.halted)return false;
+  const xy=lab.renderer.pickDeck(lab.sim,x,y);if(!xy)return false;
+  B.setTarget(lab.sim,xy);
+  if(Math.hypot(xy[0]-b.goal[0],xy[1]-b.goal[1])>1e-6)lab.toast('Target limited to the inner operating area. The red crosshair shows the accepted goal.');
+  return true;
+ };
 const canvas=$('ballTop');
 function targetEvent(e){let b=need(),r=canvas.getBoundingClientRect(),radius=S.deckGeometry(lab.sim.g).radius;B.setTarget(lab.sim,[(e.clientX-r.left-r.width/2)/(r.width*.43)*radius,-(e.clientY-r.top-r.height/2)/(r.height*.43)*radius]);}
 canvas.onpointerdown=e=>{drag=true;canvas.setPointerCapture(e.pointerId);targetEvent(e);};canvas.onpointermove=e=>{if(drag)targetEvent(e);};canvas.onpointerup=()=>drag=false;canvas.onpointercancel=()=>drag=false;
@@ -117,7 +127,7 @@ $('ballCSV').onclick=()=>{
 function draw(){
  const b=lab.sim.ball;if(b!==lastBall){lastBall=b;samples=[];lastSample=-1;sync();}
  if(!b){document.body.classList.remove('ball-active');syncLabels();return;}syncLabels();
- const p=B.position(lab.sim),d=S.deckGeometry(lab.sim.g),err=Math.hypot(p[0]-b.target[0],p[1]-b.target[1]),edge=d.radius-b.settings.radius-Math.hypot(...p);
+ const p=B.position(lab.sim),d=S.deckGeometry(lab.sim.g),marker=b.settings.path==='point'?b.goal:b.target,err=Math.hypot(p[0]-marker[0],p[1]-marker[1]),edge=d.radius-b.settings.radius-Math.hypot(...p);
  $('ballError').textContent=(err*1000).toFixed(1)+' mm';$('ballEdge').textContent=(edge*1000).toFixed(1)+' mm';
  const automatic=b.settings.control&&lab.sim.settings.mode==='ik';
  $('ballStatus').textContent=(lab.sim.halted?'NUMERICAL STOP — RESET TESTED SETUP':b.phase==='contact'?'BALL ON DECK':'BALL FELL — RESET BALL & BALANCE')+'\n'+(lab.running?'Running':'PAUSED — press Run to advance')+' / '+(automatic?'Ball feedback ON':'Ball feedback OFF · '+lab.sim.settings.mode)+'\nRoll target '+(b.command[0]*180/Math.PI).toFixed(1)+'° · Pitch target '+(b.command[1]*180/Math.PI).toFixed(1)+'°\n'+(b.sensor.stamp===null?'Position: waiting for first sample':b.settings.sensor+' position · '+(b.sensor.age*1000).toFixed(0)+' ms old');
@@ -127,8 +137,8 @@ function draw(){
  ctx.fillStyle='#dbe5e6';ctx.strokeStyle='#b4c6cd';ctx.lineWidth=2;ctx.beginPath();ctx.arc(c,c,r,0,7);ctx.fill();ctx.stroke();
  ctx.strokeStyle='#c4d2d5';for(let a=-.2;a<=.2;a+=.05){let t=px([a,0])[0];ctx.beginPath();ctx.moveTo(t,60);ctx.lineTo(t,440);ctx.stroke();ctx.beginPath();ctx.moveTo(60,t);ctx.lineTo(440,t);ctx.stroke();}
  ctx.strokeStyle='#b69462';ctx.setLineDash([8,7]);ctx.beginPath();ctx.arc(c,c,r*(d.radius-b.settings.radius-.02)/d.radius,0,7);ctx.stroke();ctx.setLineDash([]);
- ctx.strokeStyle='#78a9a6';ctx.lineWidth=3;ctx.beginPath();b.trail.forEach((v,i)=>{let a=px(v);i?ctx.lineTo(...a):ctx.moveTo(...a);});ctx.stroke();
- let t=px(b.target);ctx.strokeStyle='#168b7e';ctx.lineWidth=4;ctx.beginPath();ctx.arc(...t,12,0,7);ctx.stroke();ctx.beginPath();ctx.moveTo(t[0]-21,t[1]);ctx.lineTo(t[0]+21,t[1]);ctx.moveTo(t[0],t[1]-21);ctx.lineTo(t[0],t[1]+21);ctx.stroke();
+ ctx.strokeStyle='#78a9a6';ctx.lineWidth=3;ctx.beginPath();b.trail.forEach((v,i)=>{let a=px(S.rotate(S.qconj(lab.sim.state.q),S.sub(v,lab.sim.state.p)));i?ctx.lineTo(...a):ctx.moveTo(...a);});ctx.stroke();
+ let t=px(marker);ctx.strokeStyle='#d63535';ctx.lineWidth=4;ctx.beginPath();ctx.arc(...t,12,0,7);ctx.stroke();ctx.beginPath();ctx.moveTo(t[0]-21,t[1]);ctx.lineTo(t[0]+21,t[1]);ctx.moveTo(t[0],t[1]-21);ctx.lineTo(t[0],t[1]+21);ctx.stroke();
  if(b.sensor.estimate){let m=px(b.sensor.estimate);ctx.strokeStyle='#8b58a6';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(m[0],m[1]-12);ctx.lineTo(m[0]+12,m[1]);ctx.lineTo(m[0],m[1]+12);ctx.lineTo(m[0]-12,m[1]);ctx.closePath();ctx.stroke();}
  if(b.sensor.measurement){let m=px(b.sensor.measurement);ctx.strokeStyle='#5a79b5';ctx.lineWidth=3;ctx.strokeRect(m[0]-9,m[1]-9,18,18);}
  let q=px(p);ctx.fillStyle='#d98038';ctx.beginPath();ctx.arc(...q,b.settings.radius/d.radius*r,0,7);ctx.fill();ctx.strokeStyle='#795139';ctx.lineWidth=2;ctx.stroke();

@@ -29,7 +29,7 @@ function reset(sim,xy=[-.10,.065]){
  sim.ball={settings:set,p:add(sim.state.p,r),v:add(sim.state.v.slice(0,3),cross(sim.state.v.slice(3,6),r)),w:sim.state.v.slice(3,6),q:[1,0,0,0],
   phase:'contact',time:0,nextControl:0,target:[0,0],goal:[0,0],targetVelocity:[0,0],targetAcceleration:[0,0],command:[0,0],
   sensor:sensorState(),
-  contact:{normalImpulse:0,tangentImpulse:[0,0,0],impulse:[0,0,0],platformImpulse:[0,0,0]},trail:[],lastTrail:-1};
+  contact:{normalImpulse:0,tangentImpulse:[0,0,0],impulse:[0,0,0],platformImpulse:[0,0,0]},trail:[],trailFrame:'world',lastTrail:-1};
  return sim.ball;
 }
 function setTarget(sim,xy){
@@ -127,7 +127,7 @@ function advance(sim,dt,{fixed=false}={}){
   b.p[2]=set.radius-.02;if(b.v[2]<0)b.v[2]*=-.12;b.v[0]*=.97;b.v[1]*=.97;b.w=scale(b.w,.97);b.phase='ground';
  }
  b.time+=dt;
- if(b.time-b.lastTrail>.04){b.trail.push(position(sim));if(b.trail.length>160)b.trail.shift();b.lastTrail=b.time;}
+ if(b.time-b.lastTrail>.04){b.trail.push(b.p.slice());if(b.trail.length>160)b.trail.shift();b.lastTrail=b.time;}
  if(![...b.p,...b.v,...b.w,...b.q].every(Number.isFinite))throw Error('Non-finite ball state');
 }
 S.step=function(sim,dt=sim.settings.dt){
@@ -152,7 +152,14 @@ S.restore=function(o){const sim=baseRestore(o);if(o.ball){
  if(b.transition&&(!vector(b.transition.start,2)||!Number.isFinite(b.transition.time)||!Number.isFinite(b.transition.duration)||b.transition.duration<=0))throw Error('Invalid target transition');
  if(!vector(sensor.velocity,2)||(sensor.measurement!==null&&!vector(sensor.measurement,2))||(sensor.stamp!==null&&!Number.isFinite(sensor.stamp))||!Number.isFinite(sensor.nextSample)||!Number.isFinite(sensor.age)||!Number.isInteger(sensor.delivered)||!Number.isInteger(sensor.rng))throw Error('Invalid ball sensor state');
  if(sensor.queue.some(v=>!v||!Number.isFinite(v.time)||!Number.isFinite(v.deliver)||v.deliver<v.time||!vector(v.p,2)))throw Error('Invalid ball sensor queue');
- if(!b.trail.every(v=>vector(v,2))||!Number.isFinite(b.nextControl)||!Number.isFinite(b.lastTrail)||!vector(b.targetVelocity,2)||!vector(b.targetAcceleration,2))throw Error('Invalid ball history');
+ // Old XY samples lack historical platform poses; clearing only this display
+ // history is honest. Never lift them onto today's deck and invent a 3D fall.
+ if(!Object.hasOwn(b,'trailFrame')){
+  if(!b.trail.every(v=>vector(v,2)))throw Error('Invalid legacy ball trail');
+  b.trail=[];b.trailFrame='world';b.lastTrail=-1;
+ }
+ if(b.trailFrame!=='world'||!b.trail.every(v=>vector(v,3)))throw Error('Invalid world ball trail');
+ if(!Number.isFinite(b.nextControl)||!Number.isFinite(b.lastTrail)||!vector(b.targetVelocity,2)||!vector(b.targetAcceleration,2))throw Error('Invalid ball history');
  for(const k of ['impulse','platformImpulse','tangentImpulse'])if(!vector(b.contact?.[k],3))throw Error('Invalid ball contact data');
  if(!Number.isFinite(b.contact.normalImpulse)||b.contact.normalImpulse<0)throw Error('Invalid ball normal impulse');
  sim.ball=JSON.parse(JSON.stringify(b));
