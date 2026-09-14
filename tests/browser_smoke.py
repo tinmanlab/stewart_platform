@@ -37,7 +37,7 @@ with sync_playwright() as p:
     page.screenshot(path=str(root/'artifacts/screenshot-joints.png'),full_page=True)
     print('STAGE jointUI done',flush=True)
     # Deterministic physical compliance from UI preset and release button.
-    page.click('[data-tab="control"]');page.click('[data-preset="compliance"]')
+    page.click('[data-tab="control"]');page.click('[data-lesson="compliance"]')
     page.evaluate('lab.runFor(1.5)')
     response=page.evaluate('({x:lab.sim.state.p[0],halted:lab.sim.halted,error:lab.sim.error})')
     assert not response['halted'],response

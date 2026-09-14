@@ -113,7 +113,7 @@ R.prototype.renderMechanism=function(sim,selected){
   this.segment(end,rodTip,g.rodRadius,0xd7e0e5,1);
 
   if(selected&&selected.i===i){let p=selected.type==='base'?l.b:selected.type==='top'?l.a:S.scale(S.add(begin,end),.5);this.ring(p,l.q,.031,0xd6954b);}
-  if(this.showForces&&sim.last&&!sim.ball){let f=sim.last.forces[i+':slider:0']||0;this.arrow(l.a,S.scale(l.n,f*.0015),f>=0?0x148d8b:0xc66b4a,.14);}
+  if(this.showForces&&sim.last){let f=sim.last.forces[i+':slider:0']||0;this.arrow(l.a,S.scale(l.n,f*.0015),f>=0?0x148d8b:0xc66b4a,.14);}
  }
  if(this.cpu){this.flushCPU();this.tris=[];}
  // Unit bevel cap radius is .985: compensate so the contact disk and flat cap match.
@@ -131,7 +131,7 @@ R.prototype.renderMechanism=function(sim,selected){
  if(sim.ball){
   const b=sim.ball,top=d.top+.001;
   this.ring(at([0,0,top]),s.q,d.radius-b.settings.radius-.02,0xc6a875);
-  this.ring(at([...b.target,top+.001]),s.q,.018,0x118b83);
+  if(this.showGhost)this.ring(at([...b.target,top+.001]),s.q,.018,0x118b83);
   for(let i=Math.max(1,b.trail.length-100);i<b.trail.length;i++)this.segment(at([...b.trail[i-1],top+.002]),at([...b.trail[i],top+.002]),.0011,0x6fa7a4);
   this.draw('sphere',b.p,b.q,[b.settings.radius,b.settings.radius,b.settings.radius],0xdf7f35,.55);
   // Three colored meridians make physical rolling visible.

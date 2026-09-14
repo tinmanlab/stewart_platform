@@ -6,9 +6,11 @@ The orange ball is a separate rigid body. A controller changes the platform's ro
 
 ## Play in one minute
 
-Choose **Ball Lab**, then **Balance at center**. Click or drag the target in the top view. Arrow keys move the target by 10 mm. Try **Trace a circle**, **Push the ball**, and **Compare: control OFF**. OFF means the inner controller still holds the plate level; it does not collapse all six motors. **Try a fall** deliberately supplies an unrecoverable outward launch near the edge.
+Choose **Ball Lab**, then **Balance at center**. Press Run if paused. Click/drag the top-view target or use arrow keys (10 mm steps). Trace a circle, Push the ball, or compare Ball feedback OFF. OFF requests level hold with motors on; it is not Drives off. Try a fall deliberately launches the ball outward near the edge.
 
-**Reset ball** respawns relative to the current moving plate, clears the ball controller, measurement queues, estimator and trail, and matches the plate's local velocity at the spawn point. **Reset all** also restores the reference platform, gains and clock. These are different operations. Auto-reset is not enabled: falling remains visible until you choose to retry. **Classic experiments** returns to the original IK/FK, gravity and compliance lessons.
+Reset ball & balance respawns relative to the current plate, clears the path/observer/measurement queues/trail, and enables ball feedback while preserving drive/sensor parameters. Reset tested setup also restores the reference platform, servo and clock. Exit to platform workbench deliberately starts a fresh classic experiment. Save project first.
+
+Tilt the plate manually releases the pose target to IK controls; Manual effort uses individual active joint commands and starts paused. The automatic ball controller never writes targets in those manual states. Return to ball control (header) or the Ball Lab tab resumes the existing drive; if the ball fell, that action resets it first. Viewing another inspector tab alone does not alter control. See [the operating guide](START_HERE.md) for recovery paths and disabled controls.
 
 Orange denotes true ball position, teal the target, and blue the delivered position measurement, and purple the predicted current position. The inset is coordinate telemetry, **not a camera image**. Its dashed circle is a conservative visual guide, not a wall or a proof of safety.
 

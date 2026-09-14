@@ -46,7 +46,7 @@ with sync_playwright() as p:
     assert page.evaluate('lab.sim.ball.settings.sensor')=='sampled'
     assert page.evaluate('!!lab.sim.actuator')
     assert json.loads((ROOT/'artifacts/ball-project.json').read_text())['schema']=='stewart-lab/2'
-    page.locator('#panel-ball details summary').click()
+    page.locator('#driveParameters summary').click()
     page.fill('#ballSpeed','45');page.locator('#ballSpeed').press('Tab')
     page.fill('#ballCurrent','1.5');page.locator('#ballCurrent').press('Tab')
     page.fill('#ballFrequency','40');page.locator('#ballFrequency').press('Tab')
