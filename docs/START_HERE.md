@@ -13,7 +13,7 @@ Actual solver recordings, edited for explanation—not a runtime speed benchmark
 
 Open **Ball Lab**. The orange ball begins off-centre. Press Run if your motion preferences start the experiment paused. Does the plate need to tilt toward or away from the target? Why does it sometimes tilt the other way before the ball arrives?
 
-Click the top-view target. Now press **Push the ball**. Try **Ball feedback OFF · level plate** and repeat. The motors still hold a level plate, but the ball-position controller is absent. **Reset tested setup** returns to the reference setup.
+Click the 3D plate to place a **red goal crosshair** (or use the small top view). Dragging the scene rotates the camera, not the goal. The green trail follows the ball through a fall in three dimensions. Now press **Push the ball**. Try **Ball feedback OFF · level plate** and repeat. The motors still hold a level plate, but the ball-position controller is absent. **Reset tested setup** returns to the reference setup.
 
 ## Move between ball and manual control
 
