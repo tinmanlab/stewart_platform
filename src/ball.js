@@ -120,7 +120,9 @@ S.step=function(sim,dt=sim.settings.dt){
 };
 S.snapshot=function(sim){const o=baseSnapshot(sim);if(sim.ball)o.ball=JSON.parse(JSON.stringify(sim.ball));return o;};
 S.restore=function(o){const sim=baseRestore(o);if(o.ball){
- const b=o.ball;settings(b.settings);
+ const b=o.ball;
+ if(!b.settings||Object.keys(settings()).some(k=>!Object.hasOwn(b.settings,k)))throw Error('Incomplete saved ball settings');
+ settings(b.settings);
  for(const [k,n] of [['p',3],['v',3],['w',3],['q',4],['target',2],['goal',2],['command',2]])
   if(!Array.isArray(b[k])||b[k].length!==n||!b[k].every(Number.isFinite))throw Error('Invalid saved ball '+k);
  if(!['contact','fallen','ground'].includes(b.phase)||!Number.isFinite(b.time)||b.time<0||Math.abs(norm(b.q)-1)>.01||sim.g.payloadMass!==0)throw Error('Invalid saved ball state');
