@@ -26,6 +26,9 @@ with sync_playwright() as p:
     assert not page.evaluate('lab.running')
     assert page.locator('#ballTop').is_visible()
     assert page.evaluate('lab.sim.g.payloadMass')==0
+    assert page.evaluate('!!lab.sim.actuator')
+    assert page.locator('#ballDrive').input_value()=='servo'
+    assert page.locator('#ballSensor').input_value()=='sampled'
     page.evaluate('lab.runFor(4)')
     assert page.evaluate('Math.hypot(...StewartBall.position(lab.sim))')<.02
     canvas=page.locator('#ballTop');canvas.click(position={'x':175,'y':110})
@@ -41,6 +44,20 @@ with sync_playwright() as p:
     info.value.save_as(str(ROOT/'artifacts/ball-project.json'))
     page.set_input_files('#projectFile',str(ROOT/'artifacts/ball-project.json'));page.wait_for_timeout(100)
     assert page.evaluate('lab.sim.ball.settings.sensor')=='sampled'
+    assert page.evaluate('!!lab.sim.actuator')
+    assert json.loads((ROOT/'artifacts/ball-project.json').read_text())['schema']=='stewart-lab/2'
+    page.locator('#panel-ball details summary').click()
+    page.fill('#ballSpeed','45');page.locator('#ballSpeed').press('Tab')
+    page.fill('#ballCurrent','1.5');page.locator('#ballCurrent').press('Tab')
+    page.fill('#ballFrequency','40');page.locator('#ballFrequency').press('Tab')
+    assert abs(page.evaluate('lab.sim.actuator.parameters.velocityLimit')-.045)<1e-10
+    assert page.evaluate('lab.sim.actuator.parameters.maxCurrent')==1.5
+    assert page.evaluate('lab.sim.ball.settings.frequency')==40
+    page.select_option('#ballDrive','ideal')
+    assert not page.evaluate('!!lab.sim.actuator')
+    page.select_option('#ballDrive','servo')
+    assert page.evaluate('!!lab.sim.actuator')
+    assert page.evaluate('lab.sim.ball.settings.frequency')==50
     page.click('#ballFall');page.evaluate('lab.runFor(1)')
     assert page.evaluate('lab.sim.ball.phase')!='contact'
     page.click('#ballResetAll');assert page.evaluate('lab.sim.ball.phase')=='contact'
@@ -53,6 +70,6 @@ with sync_playwright() as p:
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+2')
     page.screenshot(path=str(ROOT/'artifacts/ball-mobile.png'),full_page=True)
     assert not errors,errors
-    result={'passed':True,'navigation':'HTTP' if a.url else 'injected HTML (not hosted validation)','state':state,'page_errors':errors,'browser':browser.version}
+    result={'passed':True,'navigation':'HTTP' if a.url else 'injected HTML (not hosted validation)','state':state,'page_errors':errors,'drive_controls_checked':True,'servo_roundtrip_checked':True,'browser':browser.version}
     (ROOT/'artifacts/ball-browser.json').write_text(json.dumps(result,indent=2))
     print(json.dumps(result,indent=2));browser.close()
