@@ -8,7 +8,7 @@ Use a branch and pull request; keep unrelated cleanup out. Explain what changes,
 
 ## Reproduce the checks
 
-Python 3.13, Node 22 and FFmpeg are the development baseline. The simulator itself has no runtime dependencies.
+Python 3.13, Node 22 and FFmpeg are the development baseline. The simulator itself has no external runtime dependencies. UI tests include explicit controller ownership, return paths and saved-state recovery; do not treat a screenshot as a passing interaction test.
 
 ```sh
 python -m pip install -r requirements-dev.txt
@@ -16,9 +16,17 @@ python -m playwright install chromium
 python build.py
 node tests/core.test.cjs
 node tests/endurance.test.cjs
+node tests/ball.test.cjs
+node tests/ball_invalid.test.cjs
+node tests/realism.test.cjs
+node tests/realism_dynamics.test.cjs balance
+node tests/realism_dynamics.test.cjs play
+node tests/realism_dynamics.test.cjs circle
 python tests/english.test.py
 python tests/browser_smoke.py
 python tests/experience.test.py
+python tests/ball_browser.py --serve
+python tests/usability.test.py
 python tools/record_demos.py        # FFmpeg must be on PATH
 python tools/build_preview.py
 python build.py --site

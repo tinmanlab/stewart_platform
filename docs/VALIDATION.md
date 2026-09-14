@@ -10,6 +10,9 @@ A simulation is useful only when its claims fit its evidence. This project check
 | Continuous scenarios | `node tests/endurance.test.cjs` | A 10 s moving-target case and 2 s passive, drives-off and all-active cases remain finite and respect tested bounds |
 | Language/archive | `python tests/english.test.py` | Maintained source is English, document language is correct, decompressed Korean archive matches its fixed SHA-256 |
 | Browser | `python tests/browser_smoke.py` | Actual controls, joint changes, IK/FK, load/release, JSON download/import, CSV, geometry change, five lesson helpers, reduced motion and narrow-screen layout |
+| Mode/recovery journeys | `python tests/usability.test.py` | Actual HTTP manual-to-ball return, reset/fall, preserved profile, FK/import invalidation, disabled controls, sensor inputs, keyboard/mobile and overlays |
+| Ball/contact | `node tests/ball.test.cjs` | Named contact, control, sensor, fall and persistence cases, plus invalid inputs in `ball_invalid.test.cjs` |
+| Generic servo/sensors | `node tests/realism.test.cjs` | Electrical/sensor/socket invariants; separate `realism_dynamics.test.cjs balance`, `play`, `circle` runs measure bounded trajectories |
 | Teaching media | `python tools/record_demos.py` | Real UI actions and state-dependent observations generate captioned clips, with source hash and execution manifest |
 | Website | `python tests/site.test.py` | Built entry points, local links, image alternatives, SVG descriptions, byte binding, caption files and 12 s video durations |
 
@@ -42,7 +45,7 @@ The generated `build.json` binds a particular English HTML file and the Korean o
 
 ## What a pass does not establish
 
-**Physics:** no measured actuator model, friction, backlash, structural flexibility, collision mesh, thermal limit or experimental parameter identification. Rendered fasteners and collars are not separately calibrated inertial parts. Ball-joint actuators are ideal three-axis torque sources, not a purchasable hardware design.
+**Physics:** no measured/calibrated actuator model, general collision mesh, backlash, structural flexibility, thermal duty model or experimental parameter identification. The optional generic servo does include averaged electrical response and drive loss; Ball Lab includes finite-deck frictional contact. See [the maintained profile](REALISM.md); the older preparation snapshot above is historical. Rendered fasteners and collars are not separately calibrated inertial parts. Ball-joint actuators are ideal three-axis torque sources, not a purchasable hardware design.
 
 **Kinematics:** local FK does not enumerate all assembly modes or guarantee a unique pose. A conditioning threshold does not prove a globally reachable, collision-free or manufacturable workspace. Internal axial leg spin is not observable from six leg lengths.
 

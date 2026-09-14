@@ -68,6 +68,12 @@
     if (event.code === 'Space' && event.target.closest('button,a,summary')) event.stopPropagation();
   });
   Object.defineProperty(lab, 'lesson', {get: () => selected});
+  lab.clearLesson = () => {
+    selected=null;exampleSimulation=null;action.hidden=true;
+    hint.textContent='Choose an experiment, or open Ball Lab. Presets start a fresh run; save your project first.';
+    buttons.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  };
+
 
   lab.loadLesson = function (name) {
     if (!Object.hasOwn(lessons, name)) return false;

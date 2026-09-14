@@ -5,3 +5,19 @@
 .lesson-hint{font-size:12px;line-height:1.55;padding:12px;border-left:3px solid #137968;background:#edf5f1;border-radius:4px;margin:0 0 15px;color:#23463d}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #116dca;outline-offset:3px}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+/* Controls remain reachable rather than compressing into misleading labels. */
+.tabs{flex-shrink:0;overflow-x:auto}.tab{white-space:nowrap}.statusbar{flex-shrink:0}
+.head-actions #ballHome{border-color:#7fbbb0;color:#dcfff4;white-space:nowrap}
+input:disabled,select:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:740px){
+ .main{height:auto;overflow:visible}.viewport{height:470px;min-height:470px;flex:none}
+ .hud{top:51px;left:15px;right:12px}.hud h2{font-size:21px!important;line-height:1.2}.view-actions{top:12px}
+ .floating-tools{left:12px;right:12px;bottom:72px;transform:none;justify-content:stretch}
+ .floating-tools button{flex:1;white-space:nowrap;font-size:11px;padding:10px 7px}
+ .viewport-footer{bottom:14px}.notice{top:173px;left:14px;right:14px}
+ .telemetry{height:auto;grid-template-columns:1fr}.telemetry>section{padding:14px 16px;min-height:196px}.telemetry>section+section{border-left:0;border-top:1px solid var(--line)}
+ .metrics{justify-content:space-between}.metric strong{font-size:22px}.chart{height:85px}
+ .sidebar{overflow:visible;min-height:0}.tabs{position:sticky;top:0;z-index:4;flex-wrap:wrap;padding:0 4px}.tab{min-height:48px;padding:0 7px;min-width:50px}
+ .panel{padding:20px 15px}.statusbar{order:99}.minor-row{flex-wrap:wrap}
+}

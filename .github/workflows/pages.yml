@@ -49,6 +49,7 @@ jobs:
           python tests/browser_smoke.py
           python tests/experience.test.py
           python tests/ball_browser.py --serve
+          python tests/usability.test.py
       - name: Produce captioned demonstrations
         run: |
           python tools/record_demos.py
@@ -116,6 +117,7 @@ jobs:
         run: |
           python tests/hosted_smoke.py --base-url https://tinmanlab.github.io/stewart_platform/ --expected-commit "$GITHUB_SHA" --readme
           python tests/ball_browser.py --url https://tinmanlab.github.io/stewart_platform/
+          python tests/usability.test.py --url https://tinmanlab.github.io/stewart_platform/
       - name: Preserve hosted verification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

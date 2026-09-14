@@ -51,6 +51,12 @@ The internal state contains `p`, `q`, six `spin` coordinates, twelve generalized
 
 The original Korean HTML in `archive/ko/` is a frozen release, not a second maintained implementation. Its SHA-256 is checked. New behavior is implemented in the English source; backporting is a separate decision.
 
+## Ball, finite drive and user-mode ownership
+
+`src/ball.js` owns sphere contact, position observation and the outer loop; it writes a pose target only when ball feedback is enabled and the inner mode is IK. `src/actuator.js` owns the optional averaged drive, encoder/gyro/FK state and version-2 persistence. `src/ball-ui.js` owns explicit manual takeover, resume and reset actions; `src/app.js` owns the workbench, import invalidation and current-mode availability of controls. `src/mechanical-view.js` renders the shared deck/socket geometry.
+
+`tests/usability.test.py` exercises the real return path, reset after fall, manual target ownership, no ghost rotor inertia after leaving the servo, disabled controls, invalid input, FK invalidation, help shortcuts, mobile layout and overlay controls. Its default is HTTP; `--url` verifies a deployed site. The explicitly labelled `--injected` fallback is not hosted acceptance.
+
 ## Research extensions, not current capabilities
 
-Cross-engine validation, independent plant/controller parameters, anisotropic spherical stiffness, geometric joint travel limits, contact complementarity, motor electrical dynamics and collision-aware workspace analysis are possible follow-on studies. They are not enabled by a successful screenshot or a passing same-model regression. Keep such claims separate from the current evidence.
+Cross-engine validation, independent plant/controller parameters, anisotropic spherical stiffness, full mesh collision, calibrated bearing limits, phase-resolved electronics and collision-aware workspace analysis are possible follow-on studies. They are not enabled by a successful screenshot or a passing same-model regression. Keep such claims separate from the current evidence.

@@ -13,7 +13,26 @@ Actual solver recordings, edited for explanation—not a runtime speed benchmark
 
 Open **Ball Lab**. The orange ball begins off-centre. Press Run if your motion preferences start the experiment paused. Does the plate need to tilt toward or away from the target? Why does it sometimes tilt the other way before the ball arrives?
 
-Click the top-view target. Now press **Push the ball**. Try **Compare: control OFF** and repeat. The motors still hold a level plate, but the ball-position controller is absent. **Reset all** returns to the reference setup.
+Click the top-view target. Now press **Push the ball**. Try **Ball feedback OFF · level plate** and repeat. The motors still hold a level plate, but the ball-position controller is absent. **Reset tested setup** returns to the reference setup.
+
+## Move between ball and manual control
+
+**Ball Lab / Return to ball control** is always in the header, with a second entry in the inspector tabs. It opens the ball controls and resumes automatic feedback on the existing drive. If the ball fell, it resets the ball and resumes; a numerical stop instead directs you to **Reset tested setup**.
+
+**Tilt the plate manually** switches to IK pose targets without removing the ball or servo. Change roll/pitch in Control. **Manual effort** is different: it pauses first, releases position holding and uses force/torque commands from active joints in Joints. In both cases, return through **Return to ball control**. Merely viewing Joints or Dynamics does not change the running controller.
+
+| Situation | What to do |
+|---|---|
+| Nothing moves; status says PAUSED | Press Run. Parameter edits do not advance frozen physics. |
+| After a fall or control-OFF comparison | Reset ball & balance clears the ball/path/observer, preserving drive and sensor parameters. |
+| Numerical stop or an unstable custom experiment | Reset tested setup (Reset lab in the scene) restores the known Ball Lab preset. |
+| A greyed-out setting | It is not used by the current mode. Ideal Kp/Kd do not configure the finite servo; delay/noise do not affect Ideal state. |
+| Need a fresh classic experiment | Exit to platform workbench and choose one preset. This discards the current ball run; save first. |
+| Need to resume an experiment | Use Save project / Load project. Geometry-only JSON is an export, not a project. Imports start paused and clear stale FK results. |
+
+**Ball feedback OFF** requests a level plate while the motors keep running. **Drives off** requests zero motor effort and does not support the plate. They are not interchangeable. A finite servo can have decaying current after a zero-effort request.
+
+Platform CSV records mechanism state and efforts; Ball CSV includes true, measured and predicted ball positions plus drive readouts. The displayed mechanism energy is not total energy of the ball and motor electronics. Sample timing follows actual recorded simulation timestamps.
 
 ## Four ways to learn
 

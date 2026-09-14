@@ -1,62 +1,55 @@
 # Stewart Platform Lab
 
-**Roll a ball by moving six robot legs. Keep it on the plate.**
+**Keep a ball on a moving plate. Then find out how six robot legs do it.**
 
-A free browser-based lab for parallel-robot kinematics, dynamics and control. No installation, account or physical hardware connection.
+A free browser lab for kinematics, dynamics and feedback control. No account, installation or physical hardware connection.
 
-[**Play Ball Lab →**](https://tinmanlab.github.io/stewart_platform/?demo=ball) · [Learn by experimenting](https://tinmanlab.github.io/stewart_platform/learn/) · [Short walkthroughs](https://tinmanlab.github.io/stewart_platform/learn/GALLERY.html)
+[**Play Ball Lab →**](https://tinmanlab.github.io/stewart_platform/?demo=ball) · [First experiment](https://tinmanlab.github.io/stewart_platform/learn/) · [Videos](https://tinmanlab.github.io/stewart_platform/learn/GALLERY.html)
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="https://tinmanlab.github.io/stewart_platform/media/lab-preview.png">
-  <img src="https://tinmanlab.github.io/stewart_platform/media/lab-preview.gif" width="960" alt="Actual simulator walkthrough: a Stewart platform balances a rolling ball, follows a target, recovers from a push and resets.">
+  <img src="https://tinmanlab.github.io/stewart_platform/media/lab-preview.gif" width="960" alt="Actual simulator walkthrough: six actuators balance a ball, move its target, trace a circle and recover from a push.">
 </picture>
 
-*Actual solver recordings, edited for explanation—not a speed benchmark. [Still](https://tinmanlab.github.io/stewart_platform/media/lab-preview.png) · [Pauseable video](https://tinmanlab.github.io/stewart_platform/learn/index.html). Motion preferences may suppress automatic animation.*
+*Real solver states, edited into a short loop—not a speed benchmark. [Still image](https://tinmanlab.github.io/stewart_platform/media/lab-preview.png) · [Video with pause controls](https://tinmanlab.github.io/stewart_platform/learn/index.html). Motion preferences may select the still or start the lab paused.*
 
-## Play first
+## One minute to play
 
-**Move the target**, not the ball. Click the top view, trace a circle, give the sphere a push, then compare control ON/OFF. The controller tilts the force-driven mechanism; contact makes the ball roll. Falling is real within the model, with visible **Reset ball** and **Reset all** controls. The top view is telemetry, not a camera.
+Press **Run** when paused. Click or drag a target in the small top view; the controller tilts the plate, not the ball. Try **Trace a circle** and **Push the ball**. The dashed boundary is a guide, not an invisible wall.
 
-[Ball physics, sensing and controls](docs/BALL_LAB.md)
+**Take over and come back:** use **Tilt the plate manually**, or select **Manual effort** in the Control tab. The header's **Return to ball control** and the **Ball Lab** tab restore automatic feedback without rebuilding the drive. Manual effort starts paused because position holding is off. Reset a fallen ball with **Reset ball & balance**; use **Reset tested setup** after a numerical stop.
 
-## Try one idea at a time
+**Save first:** classic presets and drive-profile changes start a new run. Save/Load project preserves full state and opens imports paused. Platform CSV and Ball CSV are distinct measurements; geometry-only export is not a resumable project.
 
-| Experiment | What changes | What to notice |
-|---|---|---|
-| [**Ball balance**](https://tinmanlab.github.io/stewart_platform/?demo=ball) | Target, push, control and sensor delay | Position feedback must brake the ball before it reaches the target. |
-| [**IK**](https://tinmanlab.github.io/stewart_platform/?demo=ik) | Desired platform pose | Six lengths change together; motors move the actual plate. |
-| [**FK**](https://tinmanlab.github.io/stewart_platform/?demo=fk) | Six leg lengths | The solver recovers a local assembly pose, not a force command. |
-| [**Compliance**](https://tinmanlab.github.io/stewart_platform/?demo=compliance) | Force and stiffness | The same push produces different deflections. |
-| [**Gravity**](https://tinmanlab.github.io/stewart_platform/?demo=gravity) | Compensation and disturbances | Supporting weight is not the same as holding a position. |
-| [**Passive joints**](https://tinmanlab.github.io/stewart_platform/?demo=passive) | Stiffness and damping | A motor-off joint can still exert spring and damping forces. |
+## Explore one question at a time
 
-Examples restore a known setup; save custom work first. Drag the 3D scene to orbit, scroll to zoom, and use Space to pause. Ball targets are selected in the separate top view.
+| Experiment | What it teaches |
+|---|---|
+| [IK: move the plate](https://tinmanlab.github.io/stewart_platform/?demo=ik) | Pose → six lengths → physical motor forces. |
+| [FK: recover the pose](https://tinmanlab.github.io/stewart_platform/?demo=fk) | Six lengths → a local assembly pose, not a force command. |
+| [Compliance: push a spring](https://tinmanlab.github.io/stewart_platform/?demo=compliance) | How stiffness changes deflection under the same force. |
+| [Gravity compensation](https://tinmanlab.github.io/stewart_platform/?demo=gravity) | Supporting weight is not position holding. |
+| [Passive joints](https://tinmanlab.github.io/stewart_platform/?demo=passive) | Motor-off joints can still exert spring and damping forces. |
 
-## Look inside when you are ready
+![Six-SPS mechanism: geometry, target and force-driven physical motion are different](docs/media/anatomy.svg)
 
-Inspect **18 active/passive joint groups**, edit geometry/mass and effort limits, apply disturbances, save projects as JSON and export measurements as CSV. The clear deck now sits above distinct bearing housings and mounting brackets; the old centre box is an optional payload, not a sensor.
+## What is real here—and what is modeled?
 
-![Six-SPS mechanism and the difference between target, controller and physical motion](docs/media/anatomy.svg)
+The default Ball Lab uses a **generic 24 V motor/screw servo**, sampled encoders, gyro/FK pose estimation and delayed ball-position measurements. Compare it with the ideal-force profile or reduce its speed/current limits. The top view is coordinate telemetry, **not camera vision**. Speed limits govern references; actual back-driven speed is displayed separately. All hardware parameters are assumptions, not product calibration.
 
-[First experiment](docs/START_HERE.md) · [Experiments](docs/EXPERIMENTS.md) · [Equations](docs/THEORY.md) · [Code map](docs/CODE_MAP.md) · [Tests and limits](docs/VALIDATION.md) · [References](docs/REFERENCES.md)
+Inspect **18 active/passive joint groups**, change geometry/mass, and follow equations into source and tests. Inapplicable controls are disabled instead of silently doing nothing. [Control and recovery guide](docs/START_HERE.md) · [Ball physics](docs/BALL_LAB.md) · [Drive and sensing](docs/REALISM.md)
 
-## What is actually being simulated?
+Start with motion, then progress through [experiments](docs/EXPERIMENTS.md), [equations](docs/THEORY.md), [code](docs/CODE_MAP.md), and [evidence](docs/VALIDATION.md). [References](docs/REFERENCES.md) are sources of ideas, not validation of this implementation.
 
-The Ball Lab defaults to a **24 V motor/screw servo with sampled encoders, gyro/FK pose estimation and delayed ball-position measurements**. Change the speed/current limits and compare with the ideal force profile. Passive ends are captive ball/socket joints, not pin hinges. [Drive, sensor and socket assumptions](docs/REALISM.md) are explicit: this is an educational model, not calibrated hardware.
-
-## Scope
-
-Educational rigid-body simulation, **not hardware-validated engineering software**. Ball contact is a first-order custom impulse model; its sampled sensor is not visual servoing. No general self-collision, certified bearing travel, switching/thermal electronics, flexible links or manufacturing certification. Retention is demonstrated only for stated test conditions, not guaranteed for arbitrary launches or sensor failures.
-
-## Run or contribute
+## Run locally or contribute
 
 ```sh
-python build.py                 # standard library only; open site/index.html
-node tests/ball.test.cjs        # new contact and control regressions
+python build.py                 # standard library only
+# Open site/index.html, then choose Ball Lab.
 ```
 
-Use [Contributing](CONTRIBUTING.md) for the full learning site and tests. The [development plan](docs/development/BALL_LAB_PLAN.md) bounds the new feature. The [Korean original](archive/ko/README.md) is checksum-guarded and unchanged.
+Use [Contributing](CONTRIBUTING.md) for all tests and the complete learning site. Edit `src/` and `docs/`; `site/` is generated. The [Korean original](archive/ko/README.md) is frozen and checksum-guarded.
 
-PRs run numerical and browser tests. Public deployment has a separate hosted navigation/hash/interaction check; a build is not proof of public operation. These checks reduce regressions, not guarantee zero outages.
+This is educational software: no general self-collision, certified bearing geometry, thermal/switching electronics or hardware safety guarantee. Retention is tested only within stated conditions. PR checks and separate public-URL tests reduce regressions; they do not guarantee zero bugs or outages.
 
-MIT · [Cite](CITATION.cff) · [Report a problem](https://github.com/tinmanlab/stewart_platform/issues/new/choose)
+MIT · [Cite](CITATION.cff) · [Report a reproducible problem](https://github.com/tinmanlab/stewart_platform/issues/new/choose)

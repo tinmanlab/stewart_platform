@@ -1,12 +1,12 @@
 # Predict. Change one thing. Measure.
 
-These experiments use the default virtual platform and its ideal actuators, not a commercial device. Reset between experiments. Times below are **simulated time**, not a promise of real-time performance. Millimetres are displayed in the UI; the solver uses metres, radians, kilograms, seconds and newtons.
+These experiments use the default virtual platform and its ideal actuators, not a commercial device. Use the named classic preset between experiments; from Ball Lab first choose Exit to platform workbench. Times below are **simulated time**, not a promise of real-time performance. Millimetres are displayed in the UI; the solver uses metres, radians, kilograms, seconds and newtons.
 
 ## 1. Make it move, then solve it backwards
 
 **Question:** Can six leg lengths describe a table that both moves and tilts?
 
-Open the [IK lesson](https://tinmanlab.github.io/stewart_platform/?demo=ik), or reset the lab. In **Control**, set X=25 mm, Y=−15 mm, Z=575 mm, Roll=4°, Pitch=−3°, Yaw=5°. Changing a pose field stops the automatic trajectory. Leave the six sliders active and gravity compensation on.
+Open the [IK lesson](https://tinmanlab.github.io/stewart_platform/?demo=ik), or choose Move in the classic experiment bar. In **Control**, set X=25 mm, Y=−15 mm, Z=575 mm, Roll=4°, Pitch=−3°, Yaw=5°. Changing a pose field stops the automatic trajectory. Leave the six sliders active and gravity compensation on.
 
 Watch the dashed target outline, actual table and error readouts. The errors should settle toward zero under these moderate gains. Different legs extend by different amounts; tilting is not simply changing all lengths together.
 
@@ -20,7 +20,7 @@ Now select **IK · FK → Copy target lengths → Solve forward kinematics**. Re
 
 **Question:** How far should a 16 N force move a spring of stiffness 800 N/m?
 
-Choose **Control → Push with 16 N**, or open the [compliance lesson](https://tinmanlab.github.io/stewart_platform/?demo=compliance). This resets the mechanism, selects Compliance, sets translation K=800 N/m and applies sustained +X force of 16 N. Wait about 1.5 simulated seconds. X should approach 20 mm in this default case.
+Choose **Push** in the classic experiment bar, or open the [compliance lesson](https://tinmanlab.github.io/stewart_platform/?demo=compliance). This resets the mechanism, selects Compliance, sets translation K=800 N/m and applies sustained +X force of 16 N. Wait about 1.5 simulated seconds. X should approach 20 mm in this default case.
 
 ```text
 spring force = stiffness × displacement
@@ -30,7 +30,7 @@ x = F / K = 16 / 800 = 0.020 m = 20 mm
 
 ![The default spring experiment: 16 N divided by 800 N/m gives 20 mm](media/compliance.svg)
 
-Open **Dynamics → Release all forces**. Wait another 1.5 simulated seconds and watch it return near the target. This is an active controller acting like a spring, not a physical spring added to every joint. The separate **Push** button applies an impulse of 2 N·s; it is not the same load.
+Open **Dynamics → Release all forces**. Wait another 1.5 simulated seconds and watch it return near the target. This is an active controller acting like a spring, not a physical spring added to every joint. The separate **Push plate** button applies an impulse of 2 N·s; it is not the same load.
 
 **Change one thing:** Repeat with K=1600 N/m and predict 10 mm. Then vary translation D while keeping K fixed. D changes the transient response; in this simple steady-state case it does not set the final F/K displacement.
 
@@ -42,19 +42,19 @@ Open **Dynamics → Release all forces**. Wait another 1.5 simulated seconds and
 
 **Question:** Is cancelling weight the same as moving to a target?
 
-Choose **Control → Gravity only**, or open the [gravity lesson](https://tinmanlab.github.io/stewart_platform/?demo=gravity). At rest, the same-model feedforward effort nearly balances the modelled weight. There is no position PD in this mode; modest joint damping remains.
+Choose **Gravity** in the classic experiment bar, or open the [gravity lesson](https://tinmanlab.github.io/stewart_platform/?demo=gravity). At rest, the same-model feedforward effort nearly balances the modelled weight. There is no position PD in this mode; modest joint damping remains.
 
-Click **Push**. The platform can move because gravity compensation does not create a position-restoring spring. Reset and choose **Drives off**: now the active motor commands are zero and gravity lowers the platform until other model forces, such as a stop, act.
+Click **Push plate**. The platform can move because gravity compensation does not create a position-restoring spring. Reset and choose **Drives off**: now the active motor commands are zero and gravity lowers the platform until other model forces, such as a stop, act.
 
 **Explain it:** An elevator can have a motor force that balances its weight without knowing which floor you want. Position control additionally needs a target and feedback.
 
-**Challenge:** In **Design**, change payload mass, apply geometry, then reselect Gravity only. Both the controller and plant know the edited mass in this lab. Their agreement does **not** test robustness to an unknown real payload. A meaningful robustness study would deliberately separate estimated and actual parameters; that feature is not provided here.
+**Challenge:** In **Design**, change payload mass, apply geometry, then select **Control → Gravity compensation** (not the resetting preset). Both the controller and plant know the edited mass in this lab. Their agreement does **not** test robustness to an unknown real payload. A meaningful robustness study would deliberately separate estimated and actual parameters; that feature is not provided here.
 
 ## 4. Turn a motor into a passive connection
 
 **Question:** Can a connection support weight without an active motor?
 
-Choose **Control → Passive springs**, or open the [passive lesson](https://tinmanlab.github.io/stewart_platform/?demo=passive). All six sliders are passive; default springs and dampers support the platform with some sag. In **Joints**, select P1 and inspect its k/c. Use **Capture all rests** only deliberately: this changes the unstrained reference and can change stored energy instantaneously.
+Choose **Passive** in the classic experiment bar, or open the [passive lesson](https://tinmanlab.github.io/stewart_platform/?demo=passive). All six sliders are passive; default springs and dampers support the platform with some sag. In **Joints**, select P1 and inspect its k/c. Use **Capture all rests** only deliberately: this changes the unstrained reference and can change stored energy instantaneously.
 
 For a controlled comparison, reset, pause, choose **6P passive**, and set the same k/c on all six sliders. Run and record the height. Increase stiffness on all six; compare the sag. Change damping; compare how quickly oscillations settle. Changing only P1 also makes the support asymmetric and can tilt the table.
 

@@ -63,7 +63,7 @@ function observe(sim){
  s.estimate=s.filtered?add(s.filtered,scale(s.velocity,Math.min(.25,s.age))):null;
 }
 function control(sim,dt){
- const b=sim.ball,set=b.settings;if(b.time+1e-10<b.nextControl)return;dt=.01;b.nextControl+=dt;
+ const b=sim.ball,set=b.settings;if(sim.settings.mode!=='ik'||!set.control)return;if(b.time+1e-10<b.nextControl)return;dt=.01;b.nextControl+=dt;
  if(set.path==='circle'){
   if(!b.circle){b.circle={time:b.time,start:b.target.slice()};}
   const t=b.time-b.circle.time,w=.35,r=.08,u=clamp(t/2.2,0,1),h=10*u**3-15*u**4+6*u**5,hd=(30*u*u-60*u**3+30*u**4)/2.2,hdd=(60*u-180*u*u+120*u**3)/2.2**2;
