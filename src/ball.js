@@ -29,7 +29,7 @@ function reset(sim,xy=[-.10,.065]){
  sim.ball={settings:set,p:add(sim.state.p,r),v:add(sim.state.v.slice(0,3),cross(sim.state.v.slice(3,6),r)),w:sim.state.v.slice(3,6),q:[1,0,0,0],
   phase:'contact',time:0,nextControl:0,target:[0,0],goal:[0,0],targetVelocity:[0,0],targetAcceleration:[0,0],command:[0,0],
   sensor:sensorState(),
-  contact:{normalImpulse:0,tangentImpulse:[0,0,0],impulse:[0,0,0],platformImpulse:[0,0,0]},trail:[],trailFrame:'world',lastTrail:-1};
+  contact:{normalImpulse:0,tangentImpulse:[0,0,0],impulse:[0,0,0],platformImpulse:[0,0,0]},trail:[],trailFrame:'world',deckTrail:[],lastTrail:-1};
  return sim.ball;
 }
 function setTarget(sim,xy){
@@ -127,7 +127,13 @@ function advance(sim,dt,{fixed=false}={}){
   b.p[2]=set.radius-.02;if(b.v[2]<0)b.v[2]*=-.12;b.v[0]*=.97;b.v[1]*=.97;b.w=scale(b.w,.97);b.phase='ground';
  }
  b.time+=dt;
- if(b.time-b.lastTrail>.04){b.trail.push(b.p.slice());if(b.trail.length>160)b.trail.shift();b.lastTrail=b.time;}
+ // Two display histories, captured together: world XYZ for the 3D view and
+ // deck XY at this sample's pose for the control chart. Never reproject old XY.
+ if(b.time-b.lastTrail>.04){
+  b.trail.push(b.p.slice());b.deckTrail.push(position(sim));
+  if(b.trail.length>160)b.trail.shift();if(b.deckTrail.length>160)b.deckTrail.shift();
+  b.lastTrail=b.time;
+ }
  if(![...b.p,...b.v,...b.w,...b.q].every(Number.isFinite))throw Error('Non-finite ball state');
 }
 S.step=function(sim,dt=sim.settings.dt){
@@ -159,6 +165,10 @@ S.restore=function(o){const sim=baseRestore(o);if(o.ball){
   b.trail=[];b.trailFrame='world';b.lastTrail=-1;
  }
  if(b.trailFrame!=='world'||!b.trail.every(v=>vector(v,3)))throw Error('Invalid world ball trail');
+ // Old world-only files have no capture-time plate poses. Keep their 3D trail,
+ // but start the independent deck chart empty rather than fabricate its past.
+ if(!Object.hasOwn(b,'deckTrail'))b.deckTrail=[];
+ if(!Array.isArray(b.deckTrail)||b.deckTrail.length>160||!b.deckTrail.every(v=>vector(v,2)))throw Error('Invalid deck XY history');
  if(!Number.isFinite(b.nextControl)||!Number.isFinite(b.lastTrail)||!vector(b.targetVelocity,2)||!vector(b.targetAcceleration,2))throw Error('Invalid ball history');
  for(const k of ['impulse','platformImpulse','tangentImpulse'])if(!vector(b.contact?.[k],3))throw Error('Invalid ball contact data');
  if(!Number.isFinite(b.contact.normalImpulse)||b.contact.normalImpulse<0)throw Error('Invalid ball normal impulse');

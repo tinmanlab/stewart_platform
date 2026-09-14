@@ -81,6 +81,34 @@ class Journeys(unittest.TestCase):
   goal=p.evaluate('lab.sim.ball.goal');self.assertAlmostEqual(goal[0],-.055,places=3);self.assertAlmostEqual(goal[1],.02,places=3)
   self.assertLessEqual(p.evaluate('document.documentElement.scrollWidth'),392)
   p.screenshot(path=str(ROOT/'artifacts/target-mobile.png'),full_page=True)
+ def test_top_view_past_points_stay_fixed_when_only_the_plate_pose_changes(self):
+  p=self.p;p.select_option('#ballDrive','ideal');p.evaluate('lab.runFor(.3)')
+  p.evaluate('''() => {
+   const ctx=document.getElementById('ballTop').getContext('2d');window.historyPaints=[];let path=[];
+   const begin=ctx.beginPath.bind(ctx),move=ctx.moveTo.bind(ctx),line=ctx.lineTo.bind(ctx),stroke=ctx.stroke.bind(ctx);
+   ctx.beginPath=()=>{path=[];begin();};
+   ctx.moveTo=(x,y)=>{path.push([x,y]);move(x,y);};ctx.lineTo=(x,y)=>{path.push([x,y]);line(x,y);};
+   ctx.stroke=()=>{if(ctx.strokeStyle==='#78a9a6')historyPaints.push(path.map(v=>v.slice()));stroke();};
+  }''')
+  p.wait_for_function('historyPaints.length>0 && historyPaints.at(-1).length>2')
+  before=p.evaluate('historyPaints.at(-1)');world=p.evaluate('lab.sim.ball.trail')
+  p.evaluate('historyPaints=[];lab.sim.state.q=Stewart.qEuler(.15,-.12,.2);lab.sim.state.p[0]+=.08')
+  p.wait_for_function('historyPaints.length>0')
+  after=p.evaluate('historyPaints.at(-1)')
+  self.assertEqual(after,before,'The entire recorded top-view path must not move on a later repaint')
+  self.assertEqual(p.evaluate('lab.sim.ball.trail'),world,'World XYZ history must remain unchanged too')
+  samples=p.evaluate('lab.sim.ball.deckTrail');radius=p.evaluate('Stewart.deckGeometry(lab.sim.g).radius')
+  self.assertEqual(len(after),len(samples))
+  for pixel,xy in zip(after,samples):
+   self.assertAlmostEqual(pixel[0],250+xy[0]/radius*215,places=8)
+   self.assertAlmostEqual(pixel[1],250-xy[1]/radius*215,places=8)
+  report['top_view_history']={'points_checked':len(after),'max_pixel_drift':max(abs(a-b) for x,y in zip(before,after) for a,b in zip(x,y)),'frame':'capture-time deck XY'}
+  self.assertIn('deck',p.locator('#ballTop').get_attribute('aria-label').lower())
+  p.locator('#ballTop').screenshot(path=str(ROOT/'artifacts/top-view-fixed-history.png'))
+  saved=p.evaluate('JSON.stringify(Stewart.snapshot(lab.sim))')
+  p.set_input_files('#projectFile',{'name':'deck-history.json','mimeType':'application/json','buffer':saved.encode()})
+  self.assertEqual(p.evaluate('lab.sim.ball.deckTrail'),samples)
+  p.click('#ballReset');self.assertEqual(p.evaluate('lab.sim.ball.deckTrail'),[])
 with sync_playwright() as pw:
  browser=pw.chromium.launch(executable_path=os.getenv('CHROMIUM_EXECUTABLE') or shutil.which('chromium'),headless=True,args=['--no-sandbox','--disable-dev-shm-usage']+(['--disable-webgl'] if args.cpu else []))
  (ROOT/'artifacts').mkdir(exist_ok=True)
