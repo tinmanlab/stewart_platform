@@ -26,6 +26,21 @@ def fetch(url):
         assert r.status==200,(url,r.status)
         return r.read()
 
+def wait_for_loaded_image(image,timeout=45,poll_interval=.15):
+    """Poll synchronous DOM properties from Python, without page-context eval loops.
+
+    GitHub CSP can reject Playwright's string-predicate wait_for_function. Keep
+    its policy intact and still require actual browser decoding, not just HTTP.
+    """
+    deadline=time.monotonic()+max(0,timeout)
+    while True:
+        remaining=max(0,deadline-time.monotonic())
+        state=image.evaluate('(i)=>({loaded:i.complete && i.naturalWidth>0,source:i.currentSrc,width:i.naturalWidth})',timeout=max(1,min(10000,remaining*1000)))
+        if state['loaded']:return state
+        if time.monotonic()>=deadline:
+            raise AssertionError(('README image did not decode before deadline',state))
+        time.sleep(min(poll_interval,max(0,deadline-time.monotonic())))
+
 def check(base,expected=None,readme=False):
     base=base.rstrip('/')+'/'
     OUT.mkdir(exist_ok=True)
@@ -141,8 +156,7 @@ def check(base,expected=None,readme=False):
             gh.goto(url,wait_until='domcontentloaded',timeout=60000)
             image=gh.locator('img[alt^="Actual simulator walkthrough:"]').first
             image.scroll_into_view_if_needed(timeout=30000)
-            gh.wait_for_function('Array.from(document.images).some(i=>i.alt.startsWith("Actual simulator walkthrough:")&&i.complete&&i.naturalWidth>0)',timeout=45000)
-            result['github_readme_image']=image.evaluate('(i)=>({loaded:i.naturalWidth>0,source:i.currentSrc})')
+            result['github_readme_image']=wait_for_loaded_image(image)
             gh.screenshot(path=str(OUT/'github-readme.png'))
         result['browser_version']=browser.version
         assert not result['page_errors'],result['page_errors']
