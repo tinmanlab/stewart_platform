@@ -37,6 +37,29 @@ class Publishing(unittest.TestCase):
         self.assertEqual(set(manifest['files_sha256'])|{'build.json'},published,
             'Manifest must describe bytes retained by Pages packaging, not excluded local files')
 
+    def test_readme_decoder_wait_is_bounded_and_keeps_evidence(self):
+        from hosted_smoke import wait_for_loaded_image
+        class Image:
+            def __init__(self):self.calls=0
+            def evaluate(self,expression,**options):
+                self.calls+=1
+                return {'loaded':self.calls>1,'source':'https://camo.example/preview.gif','width':720 if self.calls>1 else 0}
+        image=Image()
+        result=wait_for_loaded_image(image,timeout=1,poll_interval=0)
+        self.assertTrue(result['loaded']);self.assertEqual(result['width'],720);self.assertEqual(image.calls,2)
+    def test_readme_undecoded_image_does_not_pass(self):
+        from hosted_smoke import wait_for_loaded_image
+        class Image:
+            def evaluate(self,expression,**options):return {'loaded':False,'source':'broken.gif','width':0}
+        with self.assertRaisesRegex(AssertionError,'did not decode'):
+            wait_for_loaded_image(Image(),timeout=0,poll_interval=0)
+    def test_github_check_does_not_use_page_eval_polling(self):
+        import inspect
+        from hosted_smoke import check
+        source=inspect.getsource(check)
+        self.assertNotIn('gh.wait_for_function',source,
+            'GitHub CSP rejects page-context eval used by Playwright wait_for_function')
+
     def test_headings_have_unique_targets(self):
         for p in (ROOT/'site/learn').glob('*.html'):
             doc=Elements();doc.feed(p.read_text())
