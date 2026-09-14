@@ -24,6 +24,12 @@ class Journeys(unittest.TestCase):
  def test_manual_to_ball_preserves_drive_and_resumes_loop(self):
   p=self.page;p.evaluate('window.originalSim=lab.sim;window.originalDrive=lab.sim.actuator');p.click('[data-tab="control"]');p.click('[data-mode="manual"]')
   self.assertFalse(p.evaluate('lab.sim.ball.settings.control'),'Manual must suspend the ball controller')
+  p.click('[data-tab="joints"]');p.click('[data-joint="0:slider"]')
+  p.fill('#jointManual0','10');p.locator('#jointManual0').press('Tab')
+  for rejected in ['', '99999']:
+   p.fill('#jointManual0',rejected);p.locator('#jointManual0').press('Tab')
+   self.assertEqual(p.evaluate('lab.sim.joints[0].slider.manual'),10)
+   self.assertEqual(float(p.locator('#jointManual0').input_value()),10,'Rejected input must display the last accepted command, not its initial value')
   p.click('[data-tab="ball"]');self.assertEqual(p.evaluate('lab.sim.settings.mode'),'ik');self.assertTrue(p.evaluate('lab.sim.ball.settings.control'));self.assertTrue(p.evaluate('lab.sim===originalSim && lab.sim.actuator===originalDrive'));self.assertTrue(p.locator('#ballTop').is_visible())
  def test_manual_target_not_overwritten(self):
   p=self.page;p.evaluate("lab.setMode('manual');let q=Stewart.homeState(lab.sim.g);q.q=Stewart.qEuler(.025,0,0);lab.setTarget(q);window.manualTarget=JSON.stringify(lab.sim.target.q);lab.runFor(.02)")

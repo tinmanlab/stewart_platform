@@ -41,6 +41,7 @@ class Publishing(unittest.TestCase):
         from hosted_smoke import wait_for_loaded_image
         class Image:
             def __init__(self):self.calls=0
+            def scroll_into_view_if_needed(self,**options):pass
             def evaluate(self,expression,**options):
                 self.calls+=1
                 return {'loaded':self.calls>1,'source':'https://camo.example/preview.gif','width':720 if self.calls>1 else 0}
@@ -50,9 +51,29 @@ class Publishing(unittest.TestCase):
     def test_readme_undecoded_image_does_not_pass(self):
         from hosted_smoke import wait_for_loaded_image
         class Image:
+            def scroll_into_view_if_needed(self,**options):pass
             def evaluate(self,expression,**options):return {'loaded':False,'source':'broken.gif','width':0}
         with self.assertRaisesRegex(AssertionError,'did not decode'):
             wait_for_loaded_image(Image(),timeout=0,poll_interval=0)
+    def test_readme_detached_image_is_relocated_under_same_deadline(self):
+        from hosted_smoke import wait_for_loaded_image
+        from playwright.sync_api import Error
+        class Image:
+            def __init__(self):self.scrolls=0
+            def scroll_into_view_if_needed(self,**options):
+                self.scrolls+=1
+                if self.scrolls==1:raise Error('Element is not attached to the DOM')
+            def evaluate(self,expression,**options):return {'loaded':True,'source':'replacement.gif','width':720}
+        image=Image();result=wait_for_loaded_image(image,timeout=1,poll_interval=0)
+        self.assertEqual(image.scrolls,2);self.assertTrue(result['loaded'])
+    def test_readme_policy_errors_are_not_swallowed_as_hydration(self):
+        from hosted_smoke import wait_for_loaded_image
+        from playwright.sync_api import Error
+        class Image:
+            def scroll_into_view_if_needed(self,**options):pass
+            def evaluate(self,expression,**options):raise Error('EvalError: Content Security Policy')
+        with self.assertRaisesRegex(Error,'Content Security Policy'):
+            wait_for_loaded_image(Image(),timeout=1,poll_interval=0)
     def test_github_check_does_not_use_page_eval_polling(self):
         import inspect
         from hosted_smoke import check

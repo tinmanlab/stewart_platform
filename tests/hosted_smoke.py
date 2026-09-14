@@ -17,7 +17,7 @@ import threading
 import time
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Error as BrowserError
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'artifacts'
 
@@ -27,16 +27,25 @@ def fetch(url):
         return r.read()
 
 def wait_for_loaded_image(image,timeout=45,poll_interval=.15):
-    """Poll synchronous DOM properties from Python, without page-context eval loops.
+    """Require decoding while tolerating a replaced image during GitHub hydration.
 
-    GitHub CSP can reject Playwright's string-predicate wait_for_function. Keep
-    its policy intact and still require actual browser decoding, not just HTTP.
+    Keep CSP intact. Re-resolve the locator after a detached DOM node, but never
+    swallow a policy, browser-closure or other unexpected error as loading delay.
+    Both scrolling and synchronous property inspection share a bounded deadline.
     """
     deadline=time.monotonic()+max(0,timeout)
+    state={'loaded':False,'source':None,'width':0}
     while True:
         remaining=max(0,deadline-time.monotonic())
-        state=image.evaluate('(i)=>({loaded:i.complete && i.naturalWidth>0,source:i.currentSrc,width:i.naturalWidth})',timeout=max(1,min(10000,remaining*1000)))
-        if state['loaded']:return state
+        call_timeout=max(1,min(10000,remaining*1000))
+        try:
+            image.scroll_into_view_if_needed(timeout=call_timeout)
+            state=image.evaluate('(i)=>({loaded:i.complete && i.naturalWidth>0,source:i.currentSrc,width:i.naturalWidth})',timeout=call_timeout)
+            if state['loaded']:return state
+        except BrowserError as error:
+            if not any(text in str(error) for text in ('not attached to the DOM','Element is not connected','Execution context was destroyed')):
+                raise
+            state={'loaded':False,'transient_dom_error':str(error)}
         if time.monotonic()>=deadline:
             raise AssertionError(('README image did not decode before deadline',state))
         time.sleep(min(poll_interval,max(0,deadline-time.monotonic())))
@@ -155,7 +164,6 @@ def check(base,expected=None,readme=False):
             url='https://github.com/tinmanlab/stewart_platform/tree/'+expected+'#readme'
             gh.goto(url,wait_until='domcontentloaded',timeout=60000)
             image=gh.locator('img[alt^="Actual simulator walkthrough:"]').first
-            image.scroll_into_view_if_needed(timeout=30000)
             result['github_readme_image']=wait_for_loaded_image(image)
             gh.screenshot(path=str(OUT/'github-readme.png'))
         result['browser_version']=browser.version
