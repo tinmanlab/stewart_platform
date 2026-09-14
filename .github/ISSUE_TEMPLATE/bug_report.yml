@@ -1,0 +1,18 @@
+name: Reproducible problem
+description: Report a UI, numerical, documentation or build problem.
+title: "[Bug] "
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include browser/version, settings and a project file without personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Expected and observed result
+      description: A screenshot or small table helps. State what is measured versus assumed.
+    validations:
+      required: true

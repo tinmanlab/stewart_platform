@@ -1,0 +1,3 @@
+# Tested tooling. The simulator itself has no runtime package dependencies.
+playwright==1.57.0
+markdown-it-py==4.2.0

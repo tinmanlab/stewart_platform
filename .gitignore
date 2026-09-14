@@ -1,0 +1,13 @@
+site/
+artifacts/
+__pycache__/
+*.pyc
+.venv/
+tests/*-results.json
+tests/browser-saved-project.json
+tests/browser-telemetry.csv
+docs/media/*.mp4
+docs/media/*.png
+docs/media/*.gif
+docs/media/*.vtt
+.DS_Store
