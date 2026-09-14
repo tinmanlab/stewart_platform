@@ -55,6 +55,12 @@ jobs:
           python tests/site.test.py
           python tests/site_hardening.test.py
           python tests/hosted_smoke.py
+      - name: Preserve exact development source
+        run: |
+          mkdir -p artifacts
+          git archive --format=zip --prefix=stewart_platform/ --output=artifacts/development-source.zip HEAD
+          git rev-parse HEAD > artifacts/development-source-commit.txt
+          python -m zipfile --test artifacts/development-source.zip
       - name: Preserve test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
