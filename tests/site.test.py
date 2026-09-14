@@ -53,9 +53,10 @@ class EducationalSite(unittest.TestCase):
             self.assertIsNotNone(root.find('s:desc',ns),path.name)
     def test_recorded_videos_have_captions_and_duration(self):
         for name in ['01-ik-fk','02-compliance','03-passive']:
-            video=SITE/'media'/(name+'.mp4')
-            self.assertTrue(video.is_file(),str(video))
             self.assertTrue((SITE/'media'/(name+'.vtt')).read_text().startswith('WEBVTT'))
-            info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','json',str(video)],text=True))
-            self.assertAlmostEqual(float(info['format']['duration']),12,places=2)
+            for extension in ['.webm','.mp4']:
+                video=SITE/'media'/(name+extension)
+                self.assertTrue(video.is_file(),str(video))
+                info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','json',str(video)],text=True))
+                self.assertAlmostEqual(float(info['format']['duration']),12,places=2)
 if __name__=='__main__':unittest.main()

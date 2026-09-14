@@ -6,7 +6,31 @@ Beginners and experienced roboticists are welcome. Report one reproducible probl
 
 Use a branch and pull request; keep unrelated cleanup out. Explain what changes, why, and how it was checked. For UI changes include an actual screenshot and keyboard/mobile checks. For mechanics changes add a targeted regression and update the equation-to-code explanation. Numerical agreement is not hardware validation. Never label an author's self-check as independent approval.
 
-Run the commands in the [README](README.md). The minimum fast checks are the two Node suites, `python tests/english.test.py` and `python build.py`. Before integration also run the browser smoke, media generator, full site build and site checks. Node 22, Python 3.13 and FFmpeg are the tested development baseline; no runtime libraries are required by the simulator.
+## Reproduce the checks
+
+Python 3.13, Node 22 and FFmpeg are the development baseline. The simulator itself has no runtime dependencies.
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m playwright install chromium
+python build.py
+node tests/core.test.cjs
+node tests/endurance.test.cjs
+python tests/english.test.py
+python tests/browser_smoke.py
+python tests/experience.test.py
+python tools/record_demos.py        # FFmpeg must be on PATH
+python tools/build_preview.py
+python build.py --site
+python tests/site.test.py
+python tests/site_hardening.test.py
+python tests/hosted_smoke.py        # real local HTTP, not injected HTML
+python -m http.server 8000 --directory site
+```
+
+Open `http://localhost:8000` for the full learning site. Linux CI includes the DejaVu fonts used in the preview; on other systems adapt `FONT` and `BOLD` in `tools/build_preview.py` to local fonts. No font binaries are shipped. Environments that prohibit browser navigation may run the injected-HTML suite, but must report the HTTP suite as blocked, not passed.
+
+For a deployed site, use `python tests/hosted_smoke.py --base-url https://tinmanlab.github.io/stewart_platform/ --expected-commit <40-character-SHA> --readme`. It makes read-only requests; it does not deploy or change repository settings.
 
 ## Keep ownership simple
 

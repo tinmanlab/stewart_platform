@@ -8,7 +8,8 @@ permissions:
   contents: read
 concurrency:
   group: pages-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  # Only obsolete PR checks are cancelled; never interrupt a main deployment.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -29,7 +30,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
           python -m playwright install --with-deps chromium
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
       - name: Check numerical model and English release
         run: |
           node --check src/core.js
@@ -42,13 +43,19 @@ jobs:
           python tests/english.test.py
           python build.py
       - name: Exercise real browser controls
-        run: python tests/browser_smoke.py
+        run: |
+          python tests/browser_smoke.py
+          python tests/experience.test.py
       - name: Produce captioned demonstrations
-        run: python tools/record_demos.py
+        run: |
+          python tools/record_demos.py
+          python tools/build_preview.py
       - name: Build and check the educational website
         run: |
           python build.py --site
           python tests/site.test.py
+          python tests/site_hardening.test.py
+          python tests/hosted_smoke.py
       - name: Preserve test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -79,3 +86,31 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Install browser verification tools
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Verify public Pages and GitHub README
+        run: python tests/hosted_smoke.py --base-url https://tinmanlab.github.io/stewart_platform/ --expected-commit "$GITHUB_SHA" --readme
+      - name: Preserve hosted verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hosted-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14

@@ -4,6 +4,8 @@ Three 12-second clips show actual controls and actual simulation state. The vide
 
 ## 1. Move a target; recover the pose with FK
 
+<p class="github-preview"><img alt="Actual simulator solving a platform pose from six lengths" src="https://tinmanlab.github.io/stewart_platform/media/01-ik-fk.png"></p>
+
 <video controls preload="none" poster="media/01-ik-fk.png" aria-label="IK and FK demonstration"><source src="media/01-ik-fk.mp4" type="video/mp4"><track kind="captions" src="media/01-ik-fk.vtt" srclang="en" label="English"><a href="media/01-ik-fk.mp4">Download the IK/FK video</a></video>
 
 [Watch/download MP4](https://tinmanlab.github.io/stewart_platform/media/01-ik-fk.mp4) · [Try IK](https://tinmanlab.github.io/stewart_platform/?demo=ik)
@@ -13,6 +15,8 @@ Three 12-second clips show actual controls and actual simulation state. The vide
 **Notice:** inverse kinematics answers “what lengths?”; forward kinematics answers “what pose?”. Local convergence does not prove a unique assembly mode.
 
 ## 2. Push a virtual spring
+
+<p class="github-preview"><img alt="Actual 16 N compliance experiment with controls and readouts" src="https://tinmanlab.github.io/stewart_platform/media/02-compliance.png"></p>
 
 <video controls preload="none" poster="media/02-compliance.png" aria-label="Compliance and force-release demonstration"><source src="media/02-compliance.mp4" type="video/mp4"><track kind="captions" src="media/02-compliance.vtt" srclang="en" label="English"><a href="media/02-compliance.mp4">Download the compliance video</a></video>
 
@@ -24,6 +28,8 @@ Three 12-second clips show actual controls and actual simulation state. The vide
 
 ## 3. Motors versus passive springs
 
+<p class="github-preview"><img alt="Actual passive slider inspector with stiffness and damping" src="https://tinmanlab.github.io/stewart_platform/media/03-passive.png"></p>
+
 <video controls preload="none" poster="media/03-passive.png" aria-label="Gravity compensation and passive joint demonstration"><source src="media/03-passive.mp4" type="video/mp4"><track kind="captions" src="media/03-passive.vtt" srclang="en" label="English"><a href="media/03-passive.mp4">Download the passive-joint video</a></video>
 
 [Watch/download MP4](https://tinmanlab.github.io/stewart_platform/media/03-passive.mp4) · [Try passive joints](https://tinmanlab.github.io/stewart_platform/?demo=passive)
@@ -34,6 +40,6 @@ Three 12-second clips show actual controls and actual simulation state. The vide
 
 ## Reproduce or make your own
 
-Run `python tools/record_demos.py` after `python build.py`; FFmpeg and the pinned Playwright development dependency are required. Each clip is 120 real browser frames at 10 frames/s. A manifest in `artifacts/recordings.json` records the HTML hash, UI steps, measured state and renderer path. Media is rebuilt into the Pages artifact; it is not the authority for physics claims. Numerical tests and source code remain available separately.
+Run `python tools/record_demos.py` after `python build.py`, then `python tools/build_preview.py` for the small README loop; FFmpeg and the pinned Playwright development dependency are required. Each clip is 120 real browser frames at 10 frames/s. A manifest in `artifacts/recordings.json` records the HTML hash, UI steps, measured state and renderer path. Media is rebuilt into the Pages artifact; it is not the authority for physics claims. Numerical tests and source code remain available separately.
 
 For a class, play a clip once, pause, ask for a prediction, then run the corresponding [experiment](EXPERIMENTS.md). Use the written transcripts when video is unavailable. The [validation page](VALIDATION.md) explains exactly which execution paths were tested.
