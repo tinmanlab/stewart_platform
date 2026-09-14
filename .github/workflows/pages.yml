@@ -37,6 +37,10 @@ jobs:
           node tests/endurance.test.cjs
           node tests/ball.test.cjs
           node tests/ball_invalid.test.cjs
+          node tests/realism.test.cjs
+          node tests/realism_dynamics.test.cjs balance
+          node tests/realism_dynamics.test.cjs play
+          node tests/realism_dynamics.test.cjs circle
           node examples/compliance.cjs
           python tests/english.test.py
           python build.py

@@ -10,13 +10,13 @@ Choose **Ball Lab**, then **Balance at center**. Click or drag the target in the
 
 **Reset ball** respawns relative to the current moving plate, clears the ball controller, measurement queues, estimator and trail, and matches the plate's local velocity at the spawn point. **Reset all** also restores the reference platform, gains and clock. These are different operations. Auto-reset is not enabled: falling remains visible until you choose to retry. **Classic experiments** returns to the original IK/FK, gravity and compliance lessons.
 
-Orange denotes true ball position, teal the target, and blue the delivered position measurement. The inset is coordinate telemetry, **not a camera image**. Its dashed circle is a conservative visual guide, not a wall or a proof of safety.
+Orange denotes true ball position, teal the target, and blue the delivered position measurement, and purple the predicted current position. The inset is coordinate telemetry, **not a camera image**. Its dashed circle is a conservative visual guide, not a wall or a proof of safety.
 
 ## Clear deck and actual joint centers
 
 The default attached payload is now zero. The former box was a 2 kg attached load, not an IMU. The optional payload remains available in Design; Ball Lab requires it to be zero.
 
-Top spherical-joint centers remain at the original attachment coordinates. The disk centre is explicitly 62 mm above that plane, so its 28 mm-thick underside is 48 mm above the joint centers. Separate mounting cheeks, bearing eyes and through-pins occupy this gap rather than appearing buried in the plate. The contact radius and flat cap both use `deckGeometry(g).radius`; the bevel sits outside/below the flat cap. Decorative bracket/fastener geometry is lumped into the entered body masses, not independently weighed CAD geometry.
+Top spherical-joint centers remain at the original attachment coordinates. The disk centre is explicitly 62 mm above that plane, so its 28 mm-thick underside is 48 mm above the joint centers. Separate captive balls, hollow sockets and mounting stems occupy this gap rather than appearing buried in the plate. The contact radius and flat cap both use `deckGeometry(g).radius`; the bevel sits outside/below the flat cap. Decorative bracket/fastener geometry is lumped into the entered body masses, not independently weighed CAD geometry.
 
 This coordinate change is mechanical, not only cosmetic. The disk CoM offset enters the mass matrix and gravity through its point Jacobian. The payload height is relative to the disk centre. A historical saved project without `deckOffset` restores the old zero-offset convention instead of silently moving its reference frame. The frozen Korean original is unchanged.
 
@@ -51,30 +51,30 @@ The reference is tested with a fixed plate and angular loss disabled. It is not 
 
 ## Controller and sensing
 
-The outer loop runs at **100 Hz**. It commands only roll and pitch; X/Y/Z and yaw targets stay at home. The inner loop remains the existing IK/length-PD plus gravity feedforward, with its own force limits and 1 ms reference timestep.
+The outer loop runs at **100 Hz** and commands only roll/pitch; X/Y/Z and yaw targets remain at home. The default interactive preset uses a bounded motor/screw servo, delayed encoders and gyro/FK pose estimation. The **Ideal force comparison** profile is available separately.
 
 ```text
-a_des = Kp (x_target − x_measured)
+a_des = Kp (x_target − x_estimated_now)
         + Kd (v_target − v_estimated) + a_target
 roll_des  ≈ −a_des,y / [(5/7) g]
 pitch_des ≈  a_des,x / [(5/7) g]
 ```
 
-Default Kp = 4.5 s⁻² and Kd = 3.6 s⁻¹. The tilt-vector norm is limited to 0.14 rad (about 8°); each tilt coordinate changes by at most 0.7 rad/s. Targets are restricted to an interior operating region. These limits do not guarantee retention at arbitrary speed or near the edge. The goal moves; the ball does not teleport.
+The sensor/servo preset uses Kp = 2.5 s⁻², Kd = 2.8 s⁻¹, sampled coordinates at 50 Hz with 40 ms latency and ±0.7 mm bounded noise. An alpha-beta observer updates at capture time and predicts across latency. Missing/stale samples request level hold, without a hidden true-velocity shortcut. Smooth target transitions and a slower circle accommodate the finite drive response.
 
-**Ideal state** supplies exact local position and velocity. **Sampled position** supplies positions at a configurable sampling rate (60 Hz default), after delay, bounded noise and optional dropped samples. Velocity is estimated from delivered positions. Controller code does not read hidden true ball velocity in sampled mode. With measurements over 250 ms old or absent, the outer loop requests level hold. The UI exposes delay and noise; sampling/dropout can also be set through `StewartBall.settings` for experiments. Changing sensor mode clears its queues.
+See [Drive and sensor realism](REALISM.md) for the electrical equations, parameters, fixed-axis ball/socket construction, observer and acceptance metrics. Classic ideal-plant tests remain distinct from the realistic interactive preset. No preset guarantees retention outside its tested envelope.
 
 No camera detector, pressure array, physical webcam or hardware controller is included. A future visual-servoing implementation must detect pixels and calibrate camera-to-plate coordinates; drawing true coordinates in an inset does not establish that capability.
 
 ## Repeatable acceptance
 
-Run `node tests/ball.test.cjs` and `node tests/ball_invalid.test.cjs`. The suite checks deck clearance, incline rolling, friction bounds and equal/opposite contact impulses, actual edge fall, centre/target recovery, reset/JSON roundtrip, delayed measurements, five initial offsets and slow circle tracking. Initial-offset tests use stationary launches at (±100,0), (0,±100), and (70,70) mm; they are not a full viability-region search. The slow circle has radius 80 mm and angular speed 0.55 rad/s.
+Run `node tests/ball.test.cjs` and `node tests/ball_invalid.test.cjs`. The suite checks deck clearance, incline rolling, friction bounds and equal/opposite contact impulses, actual edge fall, centre/target recovery, reset/JSON roundtrip, delayed measurements, five initial offsets and slow circle tracking. Initial-offset tests use stationary launches at (±100,0), (0,±100), and (70,70) mm; they are not a full viability-region search. The slow circle has radius 80 mm and angular speed 0.35 rad/s, with a blended entry.
 
 Run `python tests/ball_browser.py` for controls; add `--url https://tinmanlab.github.io/stewart_platform/` for real hosted navigation. Without `--url` it explicitly reports injected HTML, not a hosted pass. The original numerical and publication tests must continue to pass. JSON/CSV exports are measurements from this model, not hardware evidence.
 
 ## Source and references
 
-`src/ball.js` owns contact/control/serialization; `src/ball-ui.js` owns interaction; `src/mechanical-view.js` owns presentation. `src/core.js::deckGeometry` is the shared deck contract. `build.py` appends those modules at explicit maintained-runtime extension points and never adds them to the frozen archive.
+`src/ball.js` owns contact/control/serialization; `src/ball-ui.js` owns interaction; `src/mechanical-view.js` owns presentation. `src/core.js::deckGeometry` is the shared deck contract; `src/actuator.js` owns the optional drive/encoder/IMU model and its snapshot contract. `build.py` appends those modules at explicit maintained-runtime extension points and never adds them to the frozen archive.
 
 Quanser's **2 DOF Ball Balancer** demonstrates why ball position and nested control are useful teaching examples: https://www.quanser.com/products/2-dof-ball-balancer/ . It is a different mechanism, not a donor engine or validation of this implementation.
 

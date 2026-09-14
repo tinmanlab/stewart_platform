@@ -34,9 +34,11 @@ function eigenSym(A){let n=A.length,a=A.map(r=>r.slice());for(let k=0;k<100;k++)
  a[p][p]=c*c*ap-2*s*c*pq+s*s*aq;a[q][q]=s*s*ap+2*s*c*pq+c*c*aq;a[p][q]=a[q][p]=0;}
  return a.map((r,i)=>r[i]).sort((a,b)=>a-b);}
 function createGeometry(o={}){
- const g=Object.assign({baseRadius:.38,topRadius:.26,homeZ:.55,baseZ:.085,basePair:12,topPair:12,platformMass:4,payloadMass:0,payloadZ:.075,deckOffset:.062,plateThickness:.028,barrelMass:.35,rodMass:.2,barrelLength:.4,rodLength:.4,barrelRadius:.018,rodRadius:.010,minLength:.40,maxLength:.76,gravity:9.81},o);
+ const g=Object.assign({baseRadius:.38,topRadius:.26,homeZ:.55,baseZ:.085,basePair:12,topPair:12,platformMass:4,payloadMass:0,payloadZ:.075,deckOffset:.062,socketLimit:.52,motorReflectedMass:0,plateThickness:.028,barrelMass:.35,rodMass:.2,barrelLength:.4,rodLength:.4,barrelRadius:.018,rodRadius:.010,minLength:.40,maxLength:.76,gravity:9.81},o);
  for(const k of ['baseRadius','topRadius','homeZ','platformMass','barrelMass','rodMass','barrelLength','rodLength','barrelRadius','rodRadius','plateThickness'])if(!Number.isFinite(g[k])||g[k]<=0)throw Error('Invalid positive geometry value: '+k);
  for(const k of ['baseZ','basePair','topPair','payloadMass','payloadZ','deckOffset','minLength','maxLength','gravity'])if(!Number.isFinite(g[k]))throw Error('Invalid finite geometry value: '+k);
+ if(!Number.isFinite(g.motorReflectedMass)||g.motorReflectedMass<0||g.motorReflectedMass>100)throw Error('Invalid reflected motor inertia');
+ if(!Number.isFinite(g.socketLimit)||g.socketLimit<=0||g.socketLimit>Math.PI)throw Error('Invalid socket travel');
  if(g.deckOffset<0||g.deckOffset>.2)throw Error('Invalid deck offset');
  if(g.gravity<0||g.payloadMass<0||g.minLength<=.1||g.minLength>=g.maxLength||g.homeZ<=g.baseZ+.1||g.barrelLength+g.rodLength<g.maxLength)throw Error('Invalid mass, assembly height, or stroke / physical overlap.');
  let b=g.basePair*Math.PI/180,p=g.topPair*Math.PI/180;
@@ -44,6 +46,15 @@ function createGeometry(o={}){
  g.P=[-Math.PI/3+p,Math.PI/3-p,Math.PI/3+p,Math.PI-p,Math.PI+p,5*Math.PI/3-p].map(t=>[g.topRadius*Math.cos(t),g.topRadius*Math.sin(t),0]);return g;
 }
 function deckGeometry(g){const center=g.deckOffset||0;return{radius:g.topRadius*1.12,center,top:center+g.plateThickness/2,bottom:center-g.plateThickness/2};}
+// Socket opening axes are fixed to their owning plates at the reference assembly.
+function socketGeometry(g,s,k=kinematics(g,s)){
+ let joints=[];for(let l of k.legs){let home=unit(sub(add([0,0,g.homeZ],g.P[l.index]),g.B[l.index]));
+  for(let type of ['base','top']){let axis=type==='base'?home:rotate(s.q,scale(home,-1)),stem=scale(l.n,type==='base'?1:-1);
+   joints.push({i:l.index,type,center:type==='base'?l.b:l.a,axis,stem,angle:Math.acos(clamp(dot(axis,stem),-1,1)),limit:g.socketLimit,
+    ballRadius:.018,innerRadius:.0183,outerRadius:.024,neckRadius:.0045,mouthAngle:Math.PI/3,mouthRadius:.0183*Math.sin(Math.PI/3)});
+  }
+ }return joints;
+}
 function homeState(g){return{p:[0,0,g.homeZ],q:[1,0,0,0],spin:zeros(6),v:zeros(),t:0};}
 function cloneState(s){return{p:s.p.slice(),q:s.q.slice(),spin:s.spin.slice(),v:s.v.slice(),t:s.t};}
 function shift(s,v,h){let x=cloneState(s);x.p=add(x.p,scale(v.slice(0,3),h));x.q=qnorm(qmul(qexp(scale(v.slice(3,6),h)),x.q));x.spin=x.spin.map((a,i)=>a+h*v[6+i]);return x;}
@@ -73,13 +84,16 @@ function kinematics(g,s){
 function massAndGravity(g,k){let M=matrix(),G=zeros();
  for(const b of k.bodies){let IW=Array.from({length:N},(_,j)=>inertiaApply(b,col(b.Jw,j)));
   for(let i=0;i<N;i++){G[i]-=b.mass*g.gravity*b.Jv[2][i];for(let j=0;j<=i;j++){let x=b.mass*dot(col(b.Jv,i),col(b.Jv,j))+dot(col(b.Jw,i),IW[j]);M[i][j]+=x;if(i!==j)M[j][i]+=x;}}}
+ for(const row of k.J)for(let i=0;i<N;i++)for(let j=0;j<N;j++)M[i][j]+=g.motorReflectedMass*row[i]*row[j];
  return{M,G};}
 function dynamics(g,s,needBias=true){let k=kinematics(g,s),{M,G}=massAndGravity(g,k),h=zeros();
  if(needBias&&norm(s.v)>1e-9){let eps=1e-5/Math.max(1,norm(s.v)),kp=kinematics(g,shift(s,s.v,eps)),km=kinematics(g,shift(s,s.v,-eps));
   for(let bi=0;bi<k.bodies.length;bi++){let b=k.bodies[bi],bp=kp.bodies[bi],bm=km.bodies[bi],a=zeros(3),alpha=zeros(3),w=mv(b.Jw,s.v);
    for(let aidx=0;aidx<3;aidx++)for(let j=0;j<N;j++){a[aidx]+=(bp.Jv[aidx][j]-bm.Jv[aidx][j])*s.v[j]/(2*eps);alpha[aidx]+=(bp.Jw[aidx][j]-bm.Jw[aidx][j])*s.v[j]/(2*eps);}
    let torque=add(inertiaApply(b,alpha),cross(w,inertiaApply(b,w)));for(let j=0;j<N;j++)h[j]+=b.mass*dot(col(b.Jv,j),a)+dot(col(b.Jw,j),torque);
-  }}return{k,M,G,h};}
+  }
+  if(g.motorReflectedMass)for(let i=0;i<6;i++){let acceleration=kp.J[i].reduce((v,x,j)=>v+(x-km.J[i][j])*s.v[j]/(2*eps),0);for(let j=0;j<N;j++)h[j]+=g.motorReflectedMass*k.J[i][j]*acceleration;}
+ }return{k,M,G,h};}
 function condition(g,k){let A=k.J.map(r=>r.slice(0,6).map((v,j)=>j<3?v:v/g.topRadius)),AtA=matrix(6,6);for(let i=0;i<6;i++)for(let j=0;j<6;j++)AtA[i][j]=A.reduce((s,r)=>s+r[i]*r[j],0);let e=eigenSym(AtA),s=e.map(x=>Math.sqrt(Math.max(0,x)));return{singularValues:s,rank:s.filter(x=>x>1e-6).length,condition:s[0]>1e-10?s[5]/s[0]:Infinity};}
 function forwardKinematics(g,lengths,seed=homeState(g)){
  if(!Array.isArray(lengths)||lengths.length!==6||lengths.some(x=>!Number.isFinite(x)||x<=0))return{ok:false,residual:Infinity,iterations:0,reason:'Invalid six lengths'};
@@ -91,7 +105,7 @@ function forwardKinematics(g,lengths,seed=homeState(g)){
   let accepted=false;for(let step=1;step>1e-4;step*=.5){let cand=shift(s,v,step);if(norm(sub(lengths,kinematics(g,cand).lengths))<res){s=cand;accepted=true;break;}}if(!accepted)break;
  }return{ok:false,state:s,residual:res,iterations:65,reason:'Local FK did not converge; change seed or lengths'};
 }
-function feasible(g,s){let k=kinematics(g,s),c=condition(g,k),bad=k.lengths.map((x,i)=>x<g.minLength||x>g.maxLength?i+1:0).filter(Boolean);return{ok:bad.length===0&&s.p[2]>.13&&c.condition<200,stroke:bad,condition:c.condition,rank:c.rank,reason:bad.length?'Stroke exceeded: L'+bad.join(', L'):s.p[2]<=.13?'Platform below clearance':c.condition>=200?'Near kinematic singularity':''};}
+function feasible(g,s){let k=kinematics(g,s),c=condition(g,k),travel=socketGeometry(g,s,k).some(j=>j.angle>j.limit),bad=k.lengths.map((x,i)=>x<g.minLength||x>g.maxLength?i+1:0).filter(Boolean);return{ok:!travel&&bad.length===0&&s.p[2]>.13&&c.condition<200,stroke:bad,condition:c.condition,rank:c.rank,reason:travel?'Ball-socket angular travel exceeded':bad.length?'Stroke exceeded: L'+bad.join(', L'):s.p[2]<=.13?'Platform below clearance':c.condition>=200?'Near kinematic singularity':''};}
 function makeJointConfig(g,s){let k=kinematics(g,s);return k.legs.map((l,i)=>({
  slider:{mode:'active',k:1200,c:45,kp:8000,kd:95,rest:k.lengths[i],max:350,manual:0},
  base:{mode:'passive',k:0,c:.025,kp:16,kd:.3,rest:l.q.slice(),max:8,manual:[0,0,0]},
@@ -127,22 +141,26 @@ function jointRows(g,s,k,joints,settings,target,alloc){let rows=[],kt=kinematics
  return rows;
 }
 function passiveTau(g,s,k,joints){let z=zeros(),dummy={mode:'free',gravityDamping:0},rows=jointRows(g,s,k,joints,dummy,s,{map:{}});for(let r of rows)if(!r.active)z=add(z,scale(r.B,r.f-r.d*dot(r.B,s.v)));return z;}
-function stopRows(g,s,k){let rows=[];for(let i=0;i<6;i++){let L=k.lengths[i],v=dot(k.J[i],s.v);if(L<g.minLength)rows.push({B:k.J[i],f:40000*(g.minLength-L),d:v<0?180:0,cap:Infinity,id:'lower-stop'+i});if(L>g.maxLength)rows.push({B:k.J[i],f:40000*(g.maxLength-L),d:v>0?180:0,cap:Infinity,id:'upper-stop'+i});}
+function stopRows(g,s,k){let rows=[];
+ for(let j of socketGeometry(g,s,k)){if(j.angle<=j.limit)continue;const axis=unit(cross(j.stem,j.axis)),J=j.type==='base'?k.legs[j.i].Jw:k.legs[j.i].Jrel;
+  const B=Array.from({length:N},(_,a)=>axis.reduce((v,x,i)=>v+x*J[i][a],0));rows.push({B,f:80*(j.angle-j.limit),d:dot(B,s.v)<0?1.2:0,cap:Infinity,id:j.i+':'+j.type+':socket-stop'});}
+for(let i=0;i<6;i++){let L=k.lengths[i],v=dot(k.J[i],s.v);if(L<g.minLength)rows.push({B:k.J[i],f:40000*(g.minLength-L),d:v<0?180:0,cap:Infinity,id:'lower-stop'+i});if(L>g.maxLength)rows.push({B:k.J[i],f:40000*(g.maxLength-L),d:v>0?180:0,cap:Infinity,id:'upper-stop'+i});}
  for(let a=0;a<6;a++){let t=a*TAU/6,r=rotate(s.q,[g.topRadius*1.1*Math.cos(t),g.topRadius*1.1*Math.sin(t),deckGeometry(g).bottom]),p=add(s.p,r);if(p[2]<.045){let B=pointJac(r)[2];rows.push({B,f:60000*(.045-p[2]),d:dot(B,s.v)<0?180:0,cap:Infinity,id:'floor'+a});}}return rows;}
 function defaultSettings(){return{mode:'ik',gravityComp:true,gravityDamping:2,translationK:900,translationD:95,rotationK:65,rotationD:8,external:[0,0,0,0,0,0],dt:.001};}
 function makeSimulation(g=createGeometry()){let s=homeState(g);return{g,state:s,target:cloneState(s),joints:makeJointConfig(g,s),settings:defaultSettings(),last:null,halted:false,error:null};}
-function controlDemand(sim,d){let set=sim.settings,tau=zeros();if(set.mode==='gravity'||((set.mode==='ik'||set.mode==='compliance')&&set.gravityComp))tau=scale(d.G,-1);
- if(set.mode==='compliance'){let ep=sub(sim.target.p,sim.state.p),er=qlog(qmul(sim.target.q,qconj(sim.state.q)));for(let a=0;a<3;a++){tau[a]+=set.translationK*ep[a]-set.translationD*sim.state.v[a];tau[3+a]+=set.rotationK*er[a]-set.rotationD*sim.state.v[3+a];}}
+function controlDemand(sim,d){let set=sim.settings,tau=zeros();if(set.mode==='gravity'||((set.mode==='ik'||set.mode==='compliance')&&set.gravityComp))tau=scale(sim.actuator?.gravityG||d.G,-1);
+ if(set.mode==='compliance'){let feedback=sim.actuator?sim.actuator.pose:sim.state;let ep=sub(sim.target.p,feedback.p),er=qlog(qmul(sim.target.q,qconj(feedback.q)));for(let a=0;a<3;a++){tau[a]+=set.translationK*ep[a]-set.translationD*feedback.v[a];tau[3+a]+=set.rotationK*er[a]-set.rotationD*feedback.v[3+a];}}
  return tau;}
 function step(sim,dt=sim.settings.dt){if(sim.halted)return sim.last;try{
  const s=sim.state,g=sim.g,d=dynamics(g,s),cols=activeColumns(g,d.k,sim.joints),demand=controlDemand(sim,d),allocation=(sim.settings.mode==='manual'||sim.settings.mode==='free')?{values:zeros(cols.length),map:{},residualNorm:0,residual:zeros(),saturated:0}:allocate(g,cols,demand);
- let rows=jointRows(g,s,d.k,sim.joints,sim.settings,sim.target,allocation),stops=stopRows(g,s,d.k),all=[...rows,...stops],base=add(sub(d.G,d.h),[...sim.settings.external,...zeros(6)]),vnext=s.v.slice(),q0=mv(d.M,s.v);
+ let rows=jointRows(g,s,d.k,sim.joints,sim.settings,sim.target,allocation);if(sim.actuator)root.StewartActuator.prepare(sim,rows,dt,d.k);let stops=stopRows(g,s,d.k),all=[...rows,...stops],base=add(sub(d.G,d.h),[...sim.settings.external,...zeros(6)]),vnext=s.v.slice(),q0=mv(d.M,s.v);
  // Active-set backward damping. Saturated motors contribute bounded effort, not unbounded damping.
  for(let it=0;it<4;it++){let A=d.M.map(r=>r.slice()),rhs=add(q0,scale(base,dt));for(let r of all){let predicted=r.f-r.d*dot(r.B,vnext),saturated=Math.abs(predicted)>r.cap,f=saturated?clamp(predicted,-r.cap,r.cap):r.f,c=saturated?0:r.d;
   for(let a=0;a<N;a++){rhs[a]+=dt*r.B[a]*f;if(c)for(let b=0;b<N;b++)A[a][b]+=dt*c*r.B[a]*r.B[b];}}
   let vn=solveSPD(A,rhs);if(norm(sub(vn,vnext))<1e-9){vnext=vn;break;}vnext=vn;
  }
  let forceMap={},actualTau=zeros(),sat=0;for(let r of rows){let f=clamp(r.f-r.d*dot(r.B,vnext),-r.cap,r.cap);forceMap[r.id]=f;actualTau=add(actualTau,scale(r.B,f));if(r.active&&Math.abs(f)>=r.cap*.999)sat++;}
+ if(sim.actuator)root.StewartActuator.complete(sim,forceMap,vnext,d.k);
  let next=shift(s,vnext,dt);next.v=vnext;next.t=s.t+dt;if(![...next.p,...next.q,...next.v].every(Number.isFinite)||norm(next.v.slice(0,3))>30||norm(next.v.slice(3,6))>80)throw Error('Numerical safety stop: motion exceeded simulation bounds. Reset / reduce gains.');
  sim.state=next;sim.last={...d,forces:forceMap,allocation,saturated:sat,acceleration:scale(sub(vnext,s.v),1/dt),actualTau,stopCount:stops.length};return sim.last;
  }catch(e){sim.halted=true;sim.error=e.message;return sim.last;}}
@@ -152,10 +170,10 @@ function energy(g,s,joints){let d=dynamics(g,s,false),T=.5*dot(s.v,mv(d.M,s.v)),
  return{kinetic:T,potential:V,total:T+V};}
 function inverseDynamics(sim,acceleration=zeros()){let d=dynamics(sim.g,sim.state),p=passiveTau(sim.g,sim.state,d.k,sim.joints),tau=sub(sub(sub(add(mv(d.M,acceleration),d.h),d.G),p),[...sim.settings.external,...zeros(6)]);return{tau,...allocate(sim.g,activeColumns(sim.g,d.k,sim.joints),tau)};}
 function snapshot(sim){return{schema:'stewart-lab/1',geometry:sim.g,state:cloneState(sim.state),target:cloneState(sim.target),joints:JSON.parse(JSON.stringify(sim.joints)),settings:{...sim.settings,external:sim.settings.external.slice()}};}
-function restore(o){if(o.schema!=='stewart-lab/1')throw Error('Unsupported project schema');let sim=makeSimulation(createGeometry({...o.geometry,deckOffset:o.geometry.deckOffset??0}));
+function restore(o){if(o.schema!=='stewart-lab/1')throw Error('Unsupported project schema');let sim=makeSimulation(createGeometry({...o.geometry,deckOffset:o.geometry.deckOffset??0,socketLimit:o.geometry.socketLimit??Math.PI}));
  for(let state of [o.state,o.target]){if(!state||state.p.length!==3||state.q.length!==4||state.spin.length!==6||state.v.length!==12||![...state.p,...state.q,...state.spin,...state.v,state.t].every(Number.isFinite))throw Error('Invalid state data');if(Math.abs(norm(state.q)-1)>.01)throw Error('Quaternion must be normalized');}
  if(!Array.isArray(o.joints)||o.joints.length!==6)throw Error('Invalid joint definitions');for(let j of o.joints)for(let type of ['slider','base','top']){let c=j[type];if(!c||!['active','passive'].includes(c.mode))throw Error('Invalid actuation mode');for(let f of ['k','c','kp','kd','max'])if(!Number.isFinite(c[f])||c[f]<0||c[f]>1e6)throw Error('Invalid joint coefficient');if(type==='slider'){if(!Number.isFinite(c.rest)||!Number.isFinite(c.manual))throw Error('Invalid slider rest / effort');}else if(!Array.isArray(c.rest)||c.rest.length!==4||!c.rest.every(Number.isFinite)||Math.abs(norm(c.rest)-1)>.01||!Array.isArray(c.manual)||c.manual.length!==3||!c.manual.every(Number.isFinite))throw Error('Invalid spherical rest / effort');}
  if(!['ik','gravity','compliance','manual','free'].includes(o.settings.mode)||!Array.isArray(o.settings.external)||o.settings.external.length!==6||!o.settings.external.every(Number.isFinite))throw Error('Invalid control settings');for(let f of ['gravityDamping','translationK','translationD','rotationK','rotationD','dt'])if(!Number.isFinite(o.settings[f])||o.settings[f]<0||o.settings[f]>1e5)throw Error('Invalid setting '+f);if(o.settings.dt<.0002||o.settings.dt>.003)throw Error('Unsafe timestep');
  sim.state=cloneState(o.state);sim.target=cloneState(o.target);sim.joints=JSON.parse(JSON.stringify(o.joints));sim.settings={...o.settings,external:o.settings.external.slice()};kinematics(sim.g,sim.state);return sim;}
-root.Stewart={N,clamp,add,sub,scale,dot,norm,cross,unit,zeros,matrix,qconj,qmul,qnorm,qexp,qlog,rotate,fromZ,qEuler,toEuler,mv,solve,solveSPD,eigenSym,createGeometry,deckGeometry,homeState,cloneState,shift,pointJac,inertiaApply,kinematics,massAndGravity,dynamics,condition,forwardKinematics,feasible,makeJointConfig,captureRest,activeColumns,allocate,orientationError,jointRows,passiveTau,defaultSettings,makeSimulation,step,impulse,energy,inverseDynamics,snapshot,restore};
+root.Stewart={N,clamp,add,sub,scale,dot,norm,cross,unit,zeros,matrix,qconj,qmul,qnorm,qexp,qlog,rotate,fromZ,qEuler,toEuler,mv,solve,solveSPD,eigenSym,createGeometry,deckGeometry,socketGeometry,homeState,cloneState,shift,pointJac,inertiaApply,kinematics,massAndGravity,dynamics,condition,forwardKinematics,feasible,makeJointConfig,captureRest,activeColumns,allocate,orientationError,jointRows,passiveTau,defaultSettings,makeSimulation,step,impulse,energy,inverseDynamics,snapshot,restore};
 })(globalThis);

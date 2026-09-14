@@ -20,7 +20,7 @@ def assemble(directory: Path) -> str:
         code=(directory/name).read_text(encoding='utf-8')
         # Explicit maintained-runtime extension points; the frozen archive is untouched.
         if directory==ROOT/'src' and key in extensions:
-            code+='\n'+(directory/extensions[key]).read_text(encoding='utf-8')
+            code+='\n'+((directory/'actuator.js').read_text(encoding='utf-8')+'\n' if key=='CORE' else '')+(directory/extensions[key]).read_text(encoding='utf-8')
         text=text.replace('/*__'+key+'__*/',code)
     if re.search(r'/\*__[A-Z]+__\*/',text):
         raise ValueError('Unexpanded build token')

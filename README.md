@@ -40,9 +40,13 @@ Inspect **18 active/passive joint groups**, edit geometry/mass and effort limits
 
 [First experiment](docs/START_HERE.md) · [Experiments](docs/EXPERIMENTS.md) · [Equations](docs/THEORY.md) · [Code map](docs/CODE_MAP.md) · [Tests and limits](docs/VALIDATION.md) · [References](docs/REFERENCES.md)
 
+## What is actually being simulated?
+
+The Ball Lab defaults to a **24 V motor/screw servo with sampled encoders, gyro/FK pose estimation and delayed ball-position measurements**. Change the speed/current limits and compare with the ideal force profile. Passive ends are captive ball/socket joints, not pin hinges. [Drive, sensor and socket assumptions](docs/REALISM.md) are explicit: this is an educational model, not calibrated hardware.
+
 ## Scope
 
-Educational rigid-body simulation, **not hardware-validated engineering software**. Ball contact is a first-order custom impulse model; its sampled sensor is not visual servoing. No general self-collision, realistic joint travel, motor electronics, flexible links or manufacturing certification. Retention is demonstrated only for stated test conditions, not guaranteed for arbitrary launches or sensor failures.
+Educational rigid-body simulation, **not hardware-validated engineering software**. Ball contact is a first-order custom impulse model; its sampled sensor is not visual servoing. No general self-collision, certified bearing travel, switching/thermal electronics, flexible links or manufacturing certification. Retention is demonstrated only for stated test conditions, not guaranteed for arbitrary launches or sensor failures.
 
 ## Run or contribute
 
