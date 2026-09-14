@@ -4,14 +4,14 @@
 
 A free, browser-based 3D lab for parallel-robot kinematics, dynamics and control. No account, install or hardware required.
 
-[**Open the lab →**](https://tinmanlab.github.io/stewart_platform/) · [Learning guide](docs/START_HERE.md) · [Video walkthroughs](https://tinmanlab.github.io/stewart_platform/learn/GALLERY.html)
+[**Open the lab →**](https://tinmanlab.github.io/stewart_platform/) · [Learning guide](https://tinmanlab.github.io/stewart_platform/learn/) · [Video walkthroughs](https://tinmanlab.github.io/stewart_platform/learn/GALLERY.html)
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="https://tinmanlab.github.io/stewart_platform/media/lab-preview.png">
   <img src="https://tinmanlab.github.io/stewart_platform/media/lab-preview.gif" width="960" alt="Actual simulator walkthrough: six actuators move a target, the platform yields to a 16-newton force, then passive springs replace motor commands.">
 </picture>
 
-*Real solver recordings, edited into a short loop—not a speed benchmark. [Still image](https://tinmanlab.github.io/stewart_platform/media/lab-preview.png) · [Pauseable video](https://tinmanlab.github.io/stewart_platform/media/lab-preview.mp4). GitHub may suppress animation according to your motion preferences.*
+*Real solver recordings, edited into a short loop—not a speed benchmark. [Still image](https://tinmanlab.github.io/stewart_platform/media/lab-preview.png) · [Pauseable video](https://tinmanlab.github.io/stewart_platform/learn/index.html). GitHub may suppress animation according to your motion preferences.*
 
 ## Try a question, not a setup process
 
