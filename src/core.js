@@ -34,14 +34,16 @@ function eigenSym(A){let n=A.length,a=A.map(r=>r.slice());for(let k=0;k<100;k++)
  a[p][p]=c*c*ap-2*s*c*pq+s*s*aq;a[q][q]=s*s*ap+2*s*c*pq+c*c*aq;a[p][q]=a[q][p]=0;}
  return a.map((r,i)=>r[i]).sort((a,b)=>a-b);}
 function createGeometry(o={}){
- const g=Object.assign({baseRadius:.38,topRadius:.26,homeZ:.55,baseZ:.085,basePair:12,topPair:12,platformMass:4,payloadMass:2,payloadZ:.075,plateThickness:.028,barrelMass:.35,rodMass:.2,barrelLength:.4,rodLength:.4,barrelRadius:.018,rodRadius:.010,minLength:.40,maxLength:.76,gravity:9.81},o);
+ const g=Object.assign({baseRadius:.38,topRadius:.26,homeZ:.55,baseZ:.085,basePair:12,topPair:12,platformMass:4,payloadMass:0,payloadZ:.075,deckOffset:.062,plateThickness:.028,barrelMass:.35,rodMass:.2,barrelLength:.4,rodLength:.4,barrelRadius:.018,rodRadius:.010,minLength:.40,maxLength:.76,gravity:9.81},o);
  for(const k of ['baseRadius','topRadius','homeZ','platformMass','barrelMass','rodMass','barrelLength','rodLength','barrelRadius','rodRadius','plateThickness'])if(!Number.isFinite(g[k])||g[k]<=0)throw Error('Invalid positive geometry value: '+k);
- for(const k of ['baseZ','basePair','topPair','payloadMass','payloadZ','minLength','maxLength','gravity'])if(!Number.isFinite(g[k]))throw Error('Invalid finite geometry value: '+k);
+ for(const k of ['baseZ','basePair','topPair','payloadMass','payloadZ','deckOffset','minLength','maxLength','gravity'])if(!Number.isFinite(g[k]))throw Error('Invalid finite geometry value: '+k);
+ if(g.deckOffset<0||g.deckOffset>.2)throw Error('Invalid deck offset');
  if(g.gravity<0||g.payloadMass<0||g.minLength<=.1||g.minLength>=g.maxLength||g.homeZ<=g.baseZ+.1||g.barrelLength+g.rodLength<g.maxLength)throw Error('Invalid mass, assembly height, or stroke / physical overlap.');
  let b=g.basePair*Math.PI/180,p=g.topPair*Math.PI/180;
  g.B=[-b,b,TAU/3-b,TAU/3+b,2*TAU/3-b,2*TAU/3+b].map(t=>[g.baseRadius*Math.cos(t),g.baseRadius*Math.sin(t),g.baseZ]);
  g.P=[-Math.PI/3+p,Math.PI/3-p,Math.PI/3+p,Math.PI-p,Math.PI+p,5*Math.PI/3-p].map(t=>[g.topRadius*Math.cos(t),g.topRadius*Math.sin(t),0]);return g;
 }
+function deckGeometry(g){const center=g.deckOffset||0;return{radius:g.topRadius*1.12,center,top:center+g.plateThickness/2,bottom:center-g.plateThickness/2};}
 function homeState(g){return{p:[0,0,g.homeZ],q:[1,0,0,0],spin:zeros(6),v:zeros(),t:0};}
 function cloneState(s){return{p:s.p.slice(),q:s.q.slice(),spin:s.spin.slice(),v:s.v.slice(),t:s.t};}
 function shift(s,v,h){let x=cloneState(s);x.p=add(x.p,scale(v.slice(0,3),h));x.q=qnorm(qmul(qexp(scale(v.slice(3,6),h)),x.q));x.spin=x.spin.map((a,i)=>a+h*v[6+i]);return x;}
@@ -53,8 +55,9 @@ function inertiaApply(body,v){let local=rotate(qconj(body.q),v);return rotate(bo
 function kinematics(g,s){
  const lengths=[],J=[],legs=[],bodies=[],Jp=angularJac();
  const rp=g.topRadius*1.12,m=g.platformMass,h=g.plateThickness;
- bodies.push({name:'platform',mass:m,pos:s.p.slice(),q:s.q,Jv:pointJac([0,0,0]),Jw:Jp,inertia:[m*(3*rp*rp+h*h)/12,m*(3*rp*rp+h*h)/12,m*rp*rp/2]});
- if(g.payloadMass>0){let r=rotate(s.q,[0,0,g.payloadZ]),m=g.payloadMass,w=.12,d=.09,h=.09;bodies.push({name:'payload',mass:m,pos:add(s.p,r),q:s.q,Jv:pointJac(r),Jw:Jp,inertia:[m*(d*d+h*h)/12,m*(w*w+h*h)/12,m*(w*w+d*d)/12]});}
+ const rd=rotate(s.q,[0,0,deckGeometry(g).center]);
+ bodies.push({name:'platform',mass:m,pos:add(s.p,rd),q:s.q,Jv:pointJac(rd),Jw:Jp,inertia:[m*(3*rp*rp+h*h)/12,m*(3*rp*rp+h*h)/12,m*rp*rp/2]});
+ if(g.payloadMass>0){let r=rotate(s.q,[0,0,deckGeometry(g).center+g.payloadZ]),m=g.payloadMass,w=.12,d=.09,h=.09;bodies.push({name:'payload',mass:m,pos:add(s.p,r),q:s.q,Jv:pointJac(r),Jw:Jp,inertia:[m*(d*d+h*h)/12,m*(w*w+h*h)/12,m*(w*w+d*d)/12]});}
  for(let i=0;i<6;i++){
   let r=rotate(s.q,g.P[i]),a=add(s.p,r),d=sub(a,g.B[i]),L=norm(d);if(L<1e-6)throw Error('Zero leg length');let n=scale(d,1/L),Ja=pointJac(r),Jn=matrix(3,N),Jw=matrix(3,N),Jl=zeros();
   for(let j=0;j<6;j++){let da=col(Ja,j),dl=dot(n,da);Jl[j]=dl;let dn=scale(sub(da,scale(n,dl)),1/L),w=sub(cross(n,dn),scale(n,(n[0]*dn[1]-n[1]*dn[0])/Math.max(1e-8,1+n[2])));for(let k=0;k<3;k++){Jn[k][j]=dn[k];Jw[k][j]=w[k];}}
@@ -125,7 +128,7 @@ function jointRows(g,s,k,joints,settings,target,alloc){let rows=[],kt=kinematics
 }
 function passiveTau(g,s,k,joints){let z=zeros(),dummy={mode:'free',gravityDamping:0},rows=jointRows(g,s,k,joints,dummy,s,{map:{}});for(let r of rows)if(!r.active)z=add(z,scale(r.B,r.f-r.d*dot(r.B,s.v)));return z;}
 function stopRows(g,s,k){let rows=[];for(let i=0;i<6;i++){let L=k.lengths[i],v=dot(k.J[i],s.v);if(L<g.minLength)rows.push({B:k.J[i],f:40000*(g.minLength-L),d:v<0?180:0,cap:Infinity,id:'lower-stop'+i});if(L>g.maxLength)rows.push({B:k.J[i],f:40000*(g.maxLength-L),d:v>0?180:0,cap:Infinity,id:'upper-stop'+i});}
- for(let a=0;a<6;a++){let t=a*TAU/6,r=rotate(s.q,[g.topRadius*1.1*Math.cos(t),g.topRadius*1.1*Math.sin(t),-g.plateThickness/2]),p=add(s.p,r);if(p[2]<.045){let B=pointJac(r)[2];rows.push({B,f:60000*(.045-p[2]),d:dot(B,s.v)<0?180:0,cap:Infinity,id:'floor'+a});}}return rows;}
+ for(let a=0;a<6;a++){let t=a*TAU/6,r=rotate(s.q,[g.topRadius*1.1*Math.cos(t),g.topRadius*1.1*Math.sin(t),deckGeometry(g).bottom]),p=add(s.p,r);if(p[2]<.045){let B=pointJac(r)[2];rows.push({B,f:60000*(.045-p[2]),d:dot(B,s.v)<0?180:0,cap:Infinity,id:'floor'+a});}}return rows;}
 function defaultSettings(){return{mode:'ik',gravityComp:true,gravityDamping:2,translationK:900,translationD:95,rotationK:65,rotationD:8,external:[0,0,0,0,0,0],dt:.001};}
 function makeSimulation(g=createGeometry()){let s=homeState(g);return{g,state:s,target:cloneState(s),joints:makeJointConfig(g,s),settings:defaultSettings(),last:null,halted:false,error:null};}
 function controlDemand(sim,d){let set=sim.settings,tau=zeros();if(set.mode==='gravity'||((set.mode==='ik'||set.mode==='compliance')&&set.gravityComp))tau=scale(d.G,-1);
@@ -149,10 +152,10 @@ function energy(g,s,joints){let d=dynamics(g,s,false),T=.5*dot(s.v,mv(d.M,s.v)),
  return{kinetic:T,potential:V,total:T+V};}
 function inverseDynamics(sim,acceleration=zeros()){let d=dynamics(sim.g,sim.state),p=passiveTau(sim.g,sim.state,d.k,sim.joints),tau=sub(sub(sub(add(mv(d.M,acceleration),d.h),d.G),p),[...sim.settings.external,...zeros(6)]);return{tau,...allocate(sim.g,activeColumns(sim.g,d.k,sim.joints),tau)};}
 function snapshot(sim){return{schema:'stewart-lab/1',geometry:sim.g,state:cloneState(sim.state),target:cloneState(sim.target),joints:JSON.parse(JSON.stringify(sim.joints)),settings:{...sim.settings,external:sim.settings.external.slice()}};}
-function restore(o){if(o.schema!=='stewart-lab/1')throw Error('Unsupported project schema');let sim=makeSimulation(createGeometry(o.geometry));
+function restore(o){if(o.schema!=='stewart-lab/1')throw Error('Unsupported project schema');let sim=makeSimulation(createGeometry({...o.geometry,deckOffset:o.geometry.deckOffset??0}));
  for(let state of [o.state,o.target]){if(!state||state.p.length!==3||state.q.length!==4||state.spin.length!==6||state.v.length!==12||![...state.p,...state.q,...state.spin,...state.v,state.t].every(Number.isFinite))throw Error('Invalid state data');if(Math.abs(norm(state.q)-1)>.01)throw Error('Quaternion must be normalized');}
  if(!Array.isArray(o.joints)||o.joints.length!==6)throw Error('Invalid joint definitions');for(let j of o.joints)for(let type of ['slider','base','top']){let c=j[type];if(!c||!['active','passive'].includes(c.mode))throw Error('Invalid actuation mode');for(let f of ['k','c','kp','kd','max'])if(!Number.isFinite(c[f])||c[f]<0||c[f]>1e6)throw Error('Invalid joint coefficient');if(type==='slider'){if(!Number.isFinite(c.rest)||!Number.isFinite(c.manual))throw Error('Invalid slider rest / effort');}else if(!Array.isArray(c.rest)||c.rest.length!==4||!c.rest.every(Number.isFinite)||Math.abs(norm(c.rest)-1)>.01||!Array.isArray(c.manual)||c.manual.length!==3||!c.manual.every(Number.isFinite))throw Error('Invalid spherical rest / effort');}
  if(!['ik','gravity','compliance','manual','free'].includes(o.settings.mode)||!Array.isArray(o.settings.external)||o.settings.external.length!==6||!o.settings.external.every(Number.isFinite))throw Error('Invalid control settings');for(let f of ['gravityDamping','translationK','translationD','rotationK','rotationD','dt'])if(!Number.isFinite(o.settings[f])||o.settings[f]<0||o.settings[f]>1e5)throw Error('Invalid setting '+f);if(o.settings.dt<.0002||o.settings.dt>.003)throw Error('Unsafe timestep');
  sim.state=cloneState(o.state);sim.target=cloneState(o.target);sim.joints=JSON.parse(JSON.stringify(o.joints));sim.settings={...o.settings,external:o.settings.external.slice()};kinematics(sim.g,sim.state);return sim;}
-root.Stewart={N,clamp,add,sub,scale,dot,norm,cross,unit,zeros,matrix,qconj,qmul,qnorm,qexp,qlog,rotate,fromZ,qEuler,toEuler,mv,solve,solveSPD,eigenSym,createGeometry,homeState,cloneState,shift,pointJac,inertiaApply,kinematics,massAndGravity,dynamics,condition,forwardKinematics,feasible,makeJointConfig,captureRest,activeColumns,allocate,orientationError,jointRows,passiveTau,defaultSettings,makeSimulation,step,impulse,energy,inverseDynamics,snapshot,restore};
+root.Stewart={N,clamp,add,sub,scale,dot,norm,cross,unit,zeros,matrix,qconj,qmul,qnorm,qexp,qlog,rotate,fromZ,qEuler,toEuler,mv,solve,solveSPD,eigenSym,createGeometry,deckGeometry,homeState,cloneState,shift,pointJac,inertiaApply,kinematics,massAndGravity,dynamics,condition,forwardKinematics,feasible,makeJointConfig,captureRest,activeColumns,allocate,orientationError,jointRows,passiveTau,defaultSettings,makeSimulation,step,impulse,energy,inverseDynamics,snapshot,restore};
 })(globalThis);

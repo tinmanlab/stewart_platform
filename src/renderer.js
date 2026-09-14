@@ -35,6 +35,9 @@ class Renderer{
  ring(p,q,r,color){for(let i=0;i<48;i++){if(i%3===2)continue;let a=i*Math.PI*2/48,b=(i+1)*Math.PI*2/48;this.segment(S.add(p,S.rotate(q,[r*Math.cos(a),r*Math.sin(a),0])),S.add(p,S.rotate(q,[r*Math.cos(b),r*Math.sin(b),0])),.0016,color,0);}}
  render(sim,selected){let gl=this.gl,rect=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,1.5);this.width=rect.width;this.height=rect.height;let w=Math.max(1,Math.round(rect.width*dpr)),h=Math.max(1,Math.round(rect.height*dpr));if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}if(!this.cpu){gl.viewport(0,0,w,h);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(this.program);}
  let ce=Math.cos(this.elevation);this.eye=S.add(this.target,[this.distance*ce*Math.cos(this.azimuth),this.distance*ce*Math.sin(this.azimuth),this.distance*Math.sin(this.elevation)]);this.vp=mul(perspective(.63,w/h,.02,20),lookAt(this.eye,this.target));if(!this.cpu)gl.uniform3fv(this.loc.uEye,this.eye);else{this.tris=[];let ctx=this.ctx;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#eaf0f3';ctx.fillRect(0,0,this.width,this.height);for(let i=-14;i<=14;i++){ctx.strokeStyle=i===0?'#b5c8d2':'#d4dfe5';ctx.lineWidth=.7;for(let pair of[[[i*.1,-1.4,-.02],[i*.1,1.4,-.02]],[[-1.4,i*.1,-.02],[1.4,i*.1,-.02]]]){let a=this.project(pair[0]),b=this.project(pair[1]);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}}}
+ this.renderMechanism(sim,selected);if(this.cpu)this.flushCPU();
+ }
+ renderMechanism(sim,selected){
  let g=sim.g,s=sim.state,k=S.kinematics(g,s);this.lastKin=k;let id=[1,0,0,0];
  this.draw('box',[0,0,-.035],id,[6,6,.025],0xe4eaf0,0);
  // Grid is geometry, so it depth-tests against the simulated mechanism.
@@ -66,7 +69,6 @@ class Renderer{
  if(this.showGhost){this.ring(sim.target.p,sim.target.q,g.topRadius*1.16,0xb98253);this.arrow(sim.target.p,S.rotate(sim.target.q,[.10,0,0]),0xc66d65);this.arrow(sim.target.p,S.rotate(sim.target.q,[0,.10,0]),0x56a183);this.arrow(sim.target.p,S.rotate(sim.target.q,[0,0,.10]),0x637dcc);}
  let anchor=[-.52,-.30,.012];this.arrow(anchor,[.10,0,0],0xc26d68);this.arrow(anchor,[0,.10,0],0x5aa185);this.arrow(anchor,[0,0,.10],0x758ed0);
  if(sim.settings.external.some(x=>x!==0))this.arrow(s.p,S.scale(sim.settings.external.slice(0,3),.006),0xdc7550,.22);
- if(this.cpu)this.flushCPU();
  }
 }
 root.StewartRenderer=Renderer;

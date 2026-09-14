@@ -46,7 +46,7 @@ Different assembly branches are not enumerated. Leg spin is not observable from 
 
 The model contains the platform disk, a rigidly attached payload box when mass is nonzero, six solid-cylinder barrels and six solid-cylinder rods: 14 moving bodies with payload, 13 without. The fixed base does not contribute moving inertia.
 
-The platform reference origin is at its own centre of mass. The payload is offset in local Z. Each barrel is centred at `b_i + n_i * barrelLength/2`; each rod is centred at `x_i - n_i * rodLength/2`. Rod and barrel share leg orientation and the ideal prismatic joint does not permit relative rotation. Their axial overlap is physically intentional; the model treats them as telescoping parts, not colliding solid volumes.
+The maintained model uses an attachment-plane reference origin. The disk centre of mass is offset by `deckOffset` in local Z (62 mm in the new reference design); `pointJac(r)` carries this offset into its translational mass and gravity terms. The optional payload centre is a further `payloadZ` above the disk centre. A legacy saved project without `deckOffset` restores zero offset, preserving the historical reference convention. Each barrel is centred at `b_i + n_i * barrelLength/2`; each rod is centred at `x_i - n_i * rodLength/2`. Rod and barrel share leg orientation and the ideal prismatic joint does not permit relative rotation. Their axial overlap is physically intentional; the model treats them as telescoping parts, not colliding solid volumes.
 
 Solid-cylinder/disk and box analytic inertia formulas are used. Rendering-only collars, fixtures, top coatings and fasteners are not separate inertial bodies. Moving-body mass/inertia should therefore be interpreted as assigned lumped engineering properties, not inferred from the decorative meshes.
 
@@ -156,7 +156,7 @@ phi_next = phi + dt phi_dot_next
 
 Bounded active motor damping uses an iterative active-set approximation (up to four iterations), so clipping a force also removes its unbounded implicit-damping contribution. Stiffness and task-space damping are not all treated fully implicitly. This integrator does not guarantee energy conservation, passivity or stability for arbitrary gains/time steps. Numerical limits stop excessive translational/angular motion or non-finite states.
 
-Axial stops are compliant penalties with stiffness 40,000 N/m and outward-motion damping 180 N·s/m. A simplified platform-bottom floor contact at Z=0.045 m samples six perimeter points, with stiffness 60,000 N/m and damping 180 N·s/m. Penetration is possible. No Coulomb friction, self-collision or general collision/contact solver is present.
+Axial stops are compliant penalties with stiffness 40,000 N/m and outward-motion damping 180 N·s/m. A simplified platform-bottom floor contact at Z=0.045 m samples six perimeter points, with stiffness 60,000 N/m and damping 180 N·s/m. Penetration is possible. The base Stewart model has no Coulomb friction or self-collision. The separate [Ball Lab](BALL_LAB.md) extension adds unilateral sphere/deck contact and Coulomb tangential impulses; it is not a general collision engine.
 
 Displayed energy includes kinetic, gravitational and passive-spring energy only. Penalty contact energy is excluded. Changes to mass, geometry, rest configuration, control or actuation are external model edits and can change energy discontinuously.
 

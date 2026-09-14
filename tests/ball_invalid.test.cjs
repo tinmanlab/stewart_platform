@@ -1,0 +1,11 @@
+'use strict';
+const assert=require('node:assert/strict');
+require('../src/core.js');require('../src/ball.js');
+const sim=Stewart.makeSimulation();StewartBall.enable(sim);
+let data=Stewart.snapshot(sim);
+data.ball.sensor.queue=[{time:0,deliver:NaN,p:[0,0]}];
+assert.throws(()=>Stewart.restore(data),/ball|sensor/);
+console.log('PASS invalid queued sensor timestamp');
+data=Stewart.snapshot(sim);delete data.ball.settings.mass;
+assert.throws(()=>Stewart.restore(data),/ball|setting/,'Incomplete saved settings must not pass constructor defaults then restore undefined mass');
+console.log('PASS incomplete saved ball settings');

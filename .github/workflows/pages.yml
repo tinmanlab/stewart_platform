@@ -8,7 +8,6 @@ permissions:
   contents: read
 concurrency:
   group: pages-${{ github.workflow }}-${{ github.ref }}
-  # Only obsolete PR checks are cancelled; never interrupt a main deployment.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   build:
@@ -33,12 +32,11 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-dejavu-core
       - name: Check numerical model and English release
         run: |
-          node --check src/core.js
-          node --check src/renderer.js
-          node --check src/app.js
-          node --check src/lessons.js
+          for file in src/*.js; do node --check "$file"; done
           node tests/core.test.cjs
           node tests/endurance.test.cjs
+          node tests/ball.test.cjs
+          node tests/ball_invalid.test.cjs
           node examples/compliance.cjs
           python tests/english.test.py
           python build.py
@@ -46,6 +44,7 @@ jobs:
         run: |
           python tests/browser_smoke.py
           python tests/experience.test.py
+          python tests/ball_browser.py --serve
       - name: Produce captioned demonstrations
         run: |
           python tools/record_demos.py
@@ -56,6 +55,12 @@ jobs:
           python tests/site.test.py
           python tests/site_hardening.test.py
           python tests/hosted_smoke.py
+      - name: Preserve exact development source
+        run: |
+          mkdir -p artifacts
+          git archive --format=zip --prefix=stewart_platform/ --output=artifacts/development-source.zip HEAD
+          git rev-parse HEAD > artifacts/development-source-commit.txt
+          python -m zipfile --test artifacts/development-source.zip
       - name: Preserve test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -86,7 +91,6 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
-
   verify:
     needs: deploy
     runs-on: ubuntu-24.04
@@ -105,7 +109,9 @@ jobs:
           python -m pip install -r requirements-dev.txt
           python -m playwright install --with-deps chromium
       - name: Verify public Pages and GitHub README
-        run: python tests/hosted_smoke.py --base-url https://tinmanlab.github.io/stewart_platform/ --expected-commit "$GITHUB_SHA" --readme
+        run: |
+          python tests/hosted_smoke.py --base-url https://tinmanlab.github.io/stewart_platform/ --expected-commit "$GITHUB_SHA" --readme
+          python tests/ball_browser.py --url https://tinmanlab.github.io/stewart_platform/
       - name: Preserve hosted verification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
